@@ -1,8 +1,27 @@
-# RiftVault v1.26 — Manual Multi-Copy Entry
+# RiftVault v1.28 — Deck Availability and Grouped Rune Galleries
 
 A mobile/desktop Riftbound collection companion built on your v1.20 Blue Shield Edition. Existing inventory, foil/alt/signature printings, rune assignment, set images, TCGplayer/RiftHunt market prices, Bilgewater links, banned labels, decks, OCR scanning, Rules Library and Excel/JSON downloads are retained.
 
 
+
+## New in v1.28 — Show every assigned Rune copy
+
+- A dedicated visual gallery appears in each deck's Runes section, **grouped by Rune type** (e.g., Calm Rune separate from Mind Rune).
+- The gallery shows **one thumbnail for each physical card copy allocated to that specific deck**, using that printing's exact collector code, finish and catalogue artwork. Multiple copies of the same printing are shown individually.
+- Tap any Rune thumbnail to open the existing full-card image preview. The full-screen preview still displays the complete card.
+- Shows group-specific required/assigned counts and an empty gallery notice if a Rune type has no assigned copies.
+- This display reads `deck.allocations` for the selected deck only. It never adds cards from Bulk or another deck and doesn't change ownership data.
+- The original Rune controls remain beneath the visual gallery for adjusting quantities, swapping printings, assigning or returning copies.
+
+## New in v1.27 — Clear deck allocation and shortages
+
+- In each deck, **green** rows mean the requirement is already complete, **amber** rows have enough currently unreserved Bulk stock to complete, and **red** rows are still short after the shared Bulk pool is considered.
+- Every card row explicitly shows **This deck: X assigned · Bulk: Y available · Other decks: Z (not in Bulk)**. A completed card no longer incorrectly says “Available to complete.”
+- Availability is calculated with a shared Bulk pool across deck sections so one copy does not count toward two open requirements. The preview follows the auto-assign section order.
+- Deck library cards and completion reviews show the same physical availability totals.
+- Assignment and swap operations confirm the selected entry belongs to the selected deck; card allocation continues to use `bulkQty()` which subtracts **all other deck allocations and storage** before allowing a copy to be assigned.
+- If old or restored data has more allocated/stored copies than owned, an explicit warning appears. **No inventory is silently changed.**
+- In the full-screen artwork preview, users still see the complete card; other v1.26 features remain.
 
 ## New in v1.26: manual multi-copy entry
 
@@ -82,3 +101,14 @@ This version retains `localStorage` key `riftvault-local-v1` for inventory and d
 - **Not verified in a real phone browser here:** Samsung camera OCR/foil detection, an actual scheduled GitHub job, live artwork/CDN pricing, and IndexedDB restore/cloud folder functionality. Please test with a small sample and retain your exported backup.
 
 RiftVault is an unofficial personal-use fan application and is not affiliated with or endorsed by Riot Games.
+
+## v1.28 test results
+
+- Direct browser-rendering tests passed at 320px, 390px and 1100px wide using synthetic catalogue entries and sample deck allocations. Test decks contained six Calm Runes (three different printings) and six Mind Runes (four different printings), with additional copies reserved in a separate deck. The gallery showed exactly 12 individually allocated Rune thumbnails in the correct groups, including repeated artwork and precise printing codes.
+- Tap-to-enlarge opened the original full-card preview; closing it returned to the deck view. No script errors or horizontal overflow were observed in the tested layouts.
+- Another deck's allocations were not changed, an extra Mind Rune could not be assigned without free Bulk, and two missing Rune requirements were flagged. Old incompatible saved data is warned about rather than auto-rewritten.
+- Tests used synthetic artwork because live CDN images and Android camera input were not available here. Actual images depend on catalogue availability and the card's corresponding printing.
+
+## v1.28 upgrade note
+
+Back up your collection to JSON before deploying. The inventory key and data format are unchanged. Replace your GitHub Pages files at repository root, retaining `.github/` and `scripts/`. The code-level regression checks do not substitute for real phone testing.
