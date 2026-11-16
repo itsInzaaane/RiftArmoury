@@ -1,126 +1,27 @@
-# RiftVault v1.29 — Exact Alternate Rune Artwork Fix
+# RiftVault v1.30 — Manual Artwork Verification + Inventory Thumbnails
 
-## Fix for VEN-R03a and other alternate-art Runes
-- Exact alternate-art Rune artwork is now verified on demand through RiftHunt's per-printing API (`/cards/:printing_id`), using the stable printing UUID. The response must match the exact set, collector number, Rune type and alternate-art variant.
-- Until validated, the app displays an **Alt art not verified** placeholder instead of risking the normal Rune image.
-- Once verified, each allocated Rune gallery copy and the full-size artwork viewer use the verified image URL and retain their own collector code and finish.
-- Verified image links are cached locally for seven days, separate from inventory storage. No changes to card quantities, deck allocations or pricing are made by this fix.
-- Existing v1.28 features are unchanged; original v1.28 notes follow.
-- Exact-art tests are in `tests/test_exact_rune_art.cjs` (run with `node tests/test_exact_rune_art.cjs`). Live loading from the provider and phone behaviour should still be verified after deploying.
+This package is a complete, GitHub Pages-ready build, based on v1.29.
 
----
+## New features
 
-# RiftVault v1.28 — Deck Availability and Grouped Rune Galleries
+- On an individual card preview, use **Verify artwork** to check or change artwork; unavailable exact Rune artwork automatically opens this verification panel.
+- **Retry source lookup** checks an exact alternate-art Rune printing against the external provider. If not found, no regular-Rune fallback is shown.
+- Preview a **direct HTTPS artwork URL** or select a **JPEG/PNG/WebP image** from your device, then choose **Yes, this is my artwork**.
+- Manually chosen images are labelled **User verified**, distinct from **Source verified**. File selections are compressed locally into JPEG (not uploaded to a server).
+- Manual selections are associated with the full collector code, including its `a` or `*` suffix. This changes the displayed picture only; card counts, foil finishes, prices, and deck assignments are unchanged.
+- Manual artwork overrides are stored under `data.artworkOverrides` in the existing collection and included in JSON export/restore. They are local to that browser unless imported elsewhere. Back up regularly; saved images count toward local storage limits.
+- In Inventory > Find cards you own, larger and **frameless** full-card thumbnails now occupy more of the row. Text stays single-line and truncates with ellipsis if screen space is too narrow.
 
-A mobile/desktop Riftbound collection companion built on your v1.20 Blue Shield Edition. Existing inventory, foil/alt/signature printings, rune assignment, set images, TCGplayer/RiftHunt market prices, Bilgewater links, banned labels, decks, OCR scanning, Rules Library and Excel/JSON downloads are retained.
+## Installation
 
+1. Export a JSON backup from the existing app.
+2. Extract this ZIP and upload all included files and folders into the **root** of your GitHub Pages repository; preserve `.github/workflows/` and `scripts/`.
+3. Commit changes and reload the published app after GitHub Pages deployment.
+4. Verify with `VEN-R03a` on a phone or desktop with internet access.
 
+## Notes
 
-## New in v1.28 — Show every assigned Rune copy
-
-- A dedicated visual gallery appears in each deck's Runes section, **grouped by Rune type** (e.g., Calm Rune separate from Mind Rune).
-- The gallery shows **one thumbnail for each physical card copy allocated to that specific deck**, using that printing's exact collector code, finish and catalogue artwork. Multiple copies of the same printing are shown individually.
-- Tap any Rune thumbnail to open the existing full-card image preview. The full-screen preview still displays the complete card.
-- Shows group-specific required/assigned counts and an empty gallery notice if a Rune type has no assigned copies.
-- This display reads `deck.allocations` for the selected deck only. It never adds cards from Bulk or another deck and doesn't change ownership data.
-- The original Rune controls remain beneath the visual gallery for adjusting quantities, swapping printings, assigning or returning copies.
-
-## New in v1.27 — Clear deck allocation and shortages
-
-- In each deck, **green** rows mean the requirement is already complete, **amber** rows have enough currently unreserved Bulk stock to complete, and **red** rows are still short after the shared Bulk pool is considered.
-- Every card row explicitly shows **This deck: X assigned · Bulk: Y available · Other decks: Z (not in Bulk)**. A completed card no longer incorrectly says “Available to complete.”
-- Availability is calculated with a shared Bulk pool across deck sections so one copy does not count toward two open requirements. The preview follows the auto-assign section order.
-- Deck library cards and completion reviews show the same physical availability totals.
-- Assignment and swap operations confirm the selected entry belongs to the selected deck; card allocation continues to use `bulkQty()` which subtracts **all other deck allocations and storage** before allowing a copy to be assigned.
-- If old or restored data has more allocated/stored copies than owned, an explicit warning appears. **No inventory is silently changed.**
-- In the full-screen artwork preview, users still see the complete card; other v1.26 features remain.
-
-## New in v1.26: manual multi-copy entry
-
-- Auto Scanner → Manual Card Entry includes a **How many copies?** field (1–999, defaults to 1).
-- Enter a printed collector code, quantity, then tap **Identify & add to Bulk**. Known foil-only cards are added automatically; flexible Common/Uncommon/Rune finishes still require confirmation.
-- Copies are added as one transaction with one scan-history entry and a +N confirmation.
-- Undo removes the **entire batch** if all its copies remain available in Bulk; if some copies were moved into decks or storage, Undo explains why it cannot proceed.
-- Printing/foil correction for a batch changes the entire batch to keep the recorded history consistent.
-- Recent Scans and scan history show the quantity, and CSV/Excel exports include a Copies column.
-- All v1.25 layout, hero artwork, scanner, rules, decks, pricing and backup functionality is retained.
-
-## New in v1.25: overnumbered art focus everywhere
-
-- The same upper-artwork crop is now applied anywhere compact overnumbered or signature card art appears: search results, inventory, deck thumbnails, detail panels, scanner verification and related small previews.
-- Full-screen artwork preview still shows the entire card, so zooming into a card remains unchanged.
-
-- Homepage featured overnumbered art now crops into the upper artwork area instead of showing too much of the lower frame/text box.
-- The featured-art image is enlarged and shifted upward on desktop and mobile so faces and torso artwork stay centred more like the highlighted red-box example.
-- The hero fade and shading masks were softened to reduce visible cutoff lines where the artwork blends into the blue homepage banner.
-
-After OCR identifies an **exact printing** (set + collector number, including `a`/`*`), RiftVault applies the following collector-aware finish policy:
-
-| Physical printing | When scanned in Smart mode |
-| --- | --- |
-| Standard booster Rare / Epic from Origins, Spiritforged, Unleashed, Vendetta or Radiance | **Foil** assigned automatically |
-| Alternate Art / Showcase / Overnumbered / Signed / Ultimate | **Foil** assigned automatically |
-| Booster Common / Uncommon | Finish selection **required**; camera reflections are only a hint |
-| Standard/basic Rune | Finish selection **required** (Normal or Foil) |
-| Alternate-Art Rune (`a` suffix) | **Foil** assigned automatically |
-| Proving Grounds starter printings (`OGS`) | **Non-foil** assigned automatically |
-| Other promotional / unverified products | Finish selection **required**; do not guess from rarity or price-feed availability |
-
-RiftVault only auto-assigns a fixed finish when a printing is identified. Low-confidence OCR and sensitive collector-number variants still trigger **Smart Scan Verification** first. If the initial OCR drops an alternate-art or Signature marker, confirm the printing before adding. **In Smart mode, Commons, Uncommons and basic Runes always require confirmation**, even if the camera suggests a finish. In Manual mode, your selected finish is used on flexible printings; a known fixed finish still takes precedence.
-
-The add-to-Bulk selectors also respect known fixed-finish rules. The app does **not** silently rewrite existing non-foil Rare/Epic inventory or edit previously saved deck allocations; review older entries manually if they were captured under the wrong finish. Some ready-made decks and special products can have different foil conventions, and a card's printed code may not identify the product in which it was acquired. For those cards, verify the actual finish and consider using a separate product-specific printing if available.
-
-**Rule source:** Riot's published [Collectability in Riftbound: Origins](https://playriftbound.com/en-us/news/announcements/collectability-in-riftbound-origins/) explains the booster foil slot and that booster Rares and Epics are foil. The product-specific starter exception is supported by [Riftbound foil guide](https://riftbound.org/learn/cards/foils). Real camera performance and every promotional printing still require verification.
-
-## Retained from v1.22
-
-- **Mobile Point Counter uses available screen height:** The two red/blue halves expand evenly to fill the screen above the existing bottom navigation, with bigger scoring controls. The display adapts as the browser chrome or phone height changes; it scrolls rather than hiding controls on unusually short devices.
-- **Homepage artwork is larger and lower:** The single changing Overnumbered card art is scaled up, positioned lower, and feathered with a broad image alpha mask so there is no visible vertical cut-off. The left-side text retains a readable dark gradient. Applies to phone and desktop.
-- **No changes to inventory schema:** Existing saved cards, decks, pricing, rules and scheduled update workflow are retained. The package continues to include `.github/workflows` and `scripts` folders.
-
-## Features retained from v1.21
-
-
-- **Responsive Home/Overview:** Simplified desktop and phone dashboard with one featured overnumbered card image at a time. Returning to Home chooses a different image, avoiding an immediate repeat when there are alternatives. The picture is loaded from the card catalogue, so it needs an internet connection and a valid image URL.
-- **Point Counter:** Open under *More → Point Counter*. Opponent faces away (180° rotated) in red at the top; your score in blue at the bottom. +/−, 50-step Undo history, Reset, 1v1 (8) or 2v2 (11), saved on this device. Reaching a target prompts a win-condition check rather than declaring an automatic victory.
-- **Smart Scan Verification:** Ambiguous/low-confidence readings, missing artwork and sensitive Signature/Overnumbered variants pause before counting a copy. Confirm the detected code/card image or select a different printing. The existing foil and alternate-art confirmation steps remain. Recognition must be checked on your physical camera.
-- **TXT deck export:** Already included in the source; preserved as *Deck → Export TXT*. Includes the Legend, Champion, MainDeck, Battlefields, Runes and Sideboard section headings/quantities.
-- **Automatic local inventory snapshots:** After data changes, IndexedDB stores an updated restore point, retaining up to 20 versions. A new version is started after a quiet 20-minute interval. Open *More → Settings & backup → Review / restore snapshots*. You can export a snapshot as JSON. **These are local backups, not cloud backups.** They can be lost if website data is cleared. On browsers with the File System Access API (some desktop Chromium browsers), optionally choose an external folder for writable JSON backups while permission remains granted. Android may not support this option. Use *Download JSON* regularly for an independent off-device backup.
-- **Official bans / rulebook updates:** Includes a dated snapshot (`official-updates.json`) and a GitHub Actions workflow that checks Riot's Rules Hub every six hours, publishes validated bans and current Core/Tournament rulebook links/dates, and updates BANNED labels/legality checks through the app feed. If the check fails, the app retains the prior snapshot and displays an unverified or stale status. **This requires installing/enabling the GitHub workflow; it is not automatic merely by uploading the website files.** The Rules Library's short human-authored summaries remain offline and need manual revision if the actual rules change. The official documents linked from the app follow the latest verified update.
-- **Centered app icon:** Uses the updated centered blue shield PNGs for the installed app, browser icon and phone home screen.
-
-## IMPORTANT: How to deploy
-
-1. On the **same browser/phone you use for RiftVault**, open *More → Settings & backup → Download JSON*. Store it outside your phone's web-browser storage.
-2. Extract the ZIP. Upload the contents of the package to the **root** of your existing GitHub `riftvault` repository, keeping the file and folder paths exactly as provided. Replace older versions. Do not put the extracted folder itself inside the repository (unless its contents are at the root).
-3. Ensure the hidden `.github/workflows/official-rules-refresh.yml` and `scripts/refresh_official.py` paths are present in GitHub. Uploading only loose root files will NOT install the automatic rules checker. To add the workflow manually on GitHub, choose *Add file → Create new file* and type the full filename `.github/workflows/official-rules-refresh.yml`, then paste the YAML from the ZIP. Add `scripts/refresh_official.py` similarly. The `official-updates.json` file must also be at the root.
-4. Check your GitHub repository's **Settings → Actions → General → Workflow permissions**. The scheduled workflow needs permission to write repository contents. Set **Read and write permissions** if required, or ask your repository administrator to enable that setting. Do not commit any personal tokens or private API keys.
-5. Open **Actions → Refresh official Riftbound rules and bans → Run workflow** once to test it. A green check confirms the scheduled source check completed. It is scheduled every six hours, but GitHub schedules are not guaranteed to run at exact times. If Riot changes its page structure, validation will prevent an unverified overwrite; check the workflow log and the app's source status.
-6. Wait for **pages build and deployment** to succeed, then close/reopen `https://itsinzaaane.github.io/riftvault/` on desktop and phone. Refresh the browser if older files remain cached. If the installed icon remains old, you may need to remove and reinstall the home-screen shortcut (do **not** clear site storage).
-
-**The GitHub action depends on official public content, not a Riot API key.** The parser detects ban lists and rulebook document links/dates. It does not automatically regenerate the entire searchable rules text or infer unpublished bans, and it cannot guarantee instant tournament-day availability. Confirm important restrictions against https://playriftbound.com/en-us/rules-hub/.
-
-## Preserving your collection
-
-This version retains `localStorage` key `riftvault-local-v1` for inventory and deck assignments. Updating files under the same website/origin should preserve it. A new browser, an incognito window or cleared site data may contain no collection; restore your JSON file in those cases. This version does **not** sync collection data between phone and desktop.
-
-## Testing and limitations
-
-- Syntax validation passed for JavaScript and Python.
-- v1.23 automated browser tests covered 12 rarity/printing cases, including OGN/SFD/RAD foil Rares/Epics, flexible Commons/Uncommons/Runes, alternate-art Runes, foil Signature overnumbered, non-foil OGS starters and unknown promotional cards. A simulated OCR loop verified Rare → Foil inventory entry and Common → finish confirmation before counting. Tested at 320px, 390px and 1100px with no page-script errors or horizontal overflow.
-- Browser-interaction simulations passed at widths 320, 390, 768 and 1100px: new homepage, switching overnumbered images, red/blue counter scoring and Undo, official snapshot validation, Jinx TXT parsing (60 cards), and Smart Scan Verification preventing an automatic add until confirmation.
-- Python official-source parser passed fixture checks (12 Standard + 13 2v2 bans). Real scheduled runs require the workflow to be installed and enabled on your GitHub repository.
-- **Not verified in a real phone browser here:** Samsung camera OCR/foil detection, an actual scheduled GitHub job, live artwork/CDN pricing, and IndexedDB restore/cloud folder functionality. Please test with a small sample and retain your exported backup.
-
-RiftVault is an unofficial personal-use fan application and is not affiliated with or endorsed by Riot Games.
-
-## v1.28 test results
-
-- Direct browser-rendering tests passed at 320px, 390px and 1100px wide using synthetic catalogue entries and sample deck allocations. Test decks contained six Calm Runes (three different printings) and six Mind Runes (four different printings), with additional copies reserved in a separate deck. The gallery showed exactly 12 individually allocated Rune thumbnails in the correct groups, including repeated artwork and precise printing codes.
-- Tap-to-enlarge opened the original full-card preview; closing it returned to the deck view. No script errors or horizontal overflow were observed in the tested layouts.
-- Another deck's allocations were not changed, an extra Mind Rune could not be assigned without free Bulk, and two missing Rune requirements were flagged. Old incompatible saved data is warned about rather than auto-rewritten.
-- Tests used synthetic artwork because live CDN images and Android camera input were not available here. Actual images depend on catalogue availability and the card's corresponding printing.
-
-## v1.28 upgrade note
-
-Back up your collection to JSON before deploying. The inventory key and data format are unchanged. Replace your GitHub Pages files at repository root, retaining `.github/` and `scripts/`. The code-level regression checks do not substitute for real phone testing.
+- The provider API and remote image hosting require internet connectivity. A manual confirmation is **not** proof of authenticity or provider-verified artwork.
+- Enter URLs only from trusted sites. An HTTPS image URL must point to an image the site permits embedding; otherwise select a local file.
+- File compression uses the browser's `createImageBitmap` and Canvas APIs and may be unavailable on older browsers.
+- The rest of the app, including v1.28 deck safeguards and Rune gallery and v1.29 exact-Rune checks, remains unchanged.

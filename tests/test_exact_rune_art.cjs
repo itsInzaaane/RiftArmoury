@@ -22,7 +22,7 @@ const context={
   isBasicRuneName:name=>/Rune$/.test(String(name||'')),
   isOvernumberedPrinting:()=>false,isSignaturePrinting:()=>false,
   escapeHtml:s=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;'),
-  verifiedRuneArt:new Map(),pendingRuneArt:new Map(),
+  verifiedRuneArt:new Map(),pendingRuneArt:new Map(),state:{artworkOverrides:{}},
   RUNE_ALT_ART_CACHE_KEY:'test-verified-art',
   localStorage:{setItem:(key,v)=>backing.set(key,v),getItem:key=>backing.get(key)||null},
   fetch:async (url)=>{fetchCalls.push(url);return {ok:true,json:async()=>response};},

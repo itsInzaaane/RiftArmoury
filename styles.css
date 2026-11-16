@@ -593,3 +593,35 @@ body{background:radial-gradient(circle at 90% 0%,#12447b1c,transparent 46%),#080
 /* v1.29 — Never substitute a regular Rune image for an unverified alternate art. */
 .rv-rune-image-unverified{width:100%;min-height:65px;display:grid!important;place-content:center;text-align:center;color:#b9d1e9;background:#173149;border:1px dashed #6684a5;border-radius:6px;font-size:11px!important;line-height:1.35;white-space:normal;overflow-wrap:break-word}
 .rv-rune-copy .rv-rune-image-unverified{aspect-ratio:0.714;min-height:0}
+
+/* v1.30 — larger, frameless artwork in Inventory > Find cards you own.
+   Preserve every text line; truncate only when a handset is too narrow. */
+.inventory-list .inventory-row{grid-template-columns:94px minmax(0,1fr) minmax(112px,150px) auto;column-gap:16px}
+.inventory-list .inventory-thumb.card-zoom-trigger{width:94px;height:132px;aspect-ratio:5 / 7;border:0!important;outline:0;background:transparent!important;box-shadow:none!important;padding:0!important;border-radius:5px}
+.inventory-list .inventory-thumb img,.inventory-list .inventory-thumb img.art-focus-over{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain!important;object-position:center!important;transform:none!important;filter:none!important}
+.inventory-list .inventory-main,.inventory-list .inventory-price{min-width:0;overflow:hidden}
+.inventory-list .inventory-main>strong,.inventory-list .inventory-sub,.inventory-list .inventory-location,.inventory-list .inventory-price-label,.inventory-list .inventory-price strong,.inventory-list .inventory-price .micro{max-width:100%;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal!important}
+.inventory-list .inventory-finish{white-space:nowrap}
+@media(max-width:960px) and (min-width:701px){.inventory-list .inventory-row{grid-template-columns:94px minmax(0,1fr) minmax(112px,1fr)}}
+@media(max-width:700px){
+ .inventory-list .inventory-row{grid-template-columns:clamp(76px,23.5vw,100px) minmax(0,1fr);grid-template-areas:'art main' 'art price' 'actions actions';column-gap:clamp(10px,3vw,16px);row-gap:4px}
+ .inventory-list .inventory-thumb.card-zoom-trigger{width:100%;height:auto;aspect-ratio:5 / 7;align-self:start}
+ .inventory-list .inventory-main>strong{white-space:nowrap!important}
+ .inventory-list .inventory-actions{margin-top:7px}
+}
+@media(max-width:360px){.inventory-list .inventory-row{grid-template-columns:clamp(72px,23vw,80px) minmax(0,1fr);column-gap:10px}}
+/* v1.30 — per-printing artwork verification, mobile-first. */
+.rv-artwork-status{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0;color:var(--muted);font-size:12px}
+.rv-artwork-verify{display:grid;gap:13px}
+.rv-artwork-verify-status{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.rv-artwork-verify-status strong{color:var(--accent)}
+.rv-artwork-verify-status span{font-size:11px;color:var(--muted)}
+.rv-artwork-candidate{height:min(46dvh,380px);min-height:180px;display:grid;place-items:center;border:1px dashed #45678b;background:#0f1b2d;border-radius:12px;overflow:hidden}
+.rv-artwork-candidate img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
+.rv-artwork-empty{color:var(--muted);font-size:12px;padding:16px;text-align:center}
+.rv-artwork-actions{display:flex;gap:8px;flex-wrap:wrap}
+.rv-artwork-select{border-top:1px solid var(--line);padding-top:15px;min-width:0}
+.rv-artwork-select .form-field{margin-bottom:10px}
+.rv-artwork-select input[type=file]{max-width:100%;font-size:12px}
+.art-preview-header .row{flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:700px){.rv-artwork-verify .btn{min-height:37px}.rv-artwork-candidate{height:min(36dvh,320px)}}

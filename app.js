@@ -199,8 +199,8 @@ function isOvernumberedPrinting(meta){return !!meta && (!!meta.isOvernumbered ||
 function uid(){return (typeof crypto!=='undefined' && crypto.randomUUID)?crypto.randomUUID():'id-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2);}
 function keyFor(cardId,finish){return String(cardId)+'~~'+(finish||'Normal');}
 function unpackKey(key){const pos=key.lastIndexOf('~~');return pos<0?{id:key,finish:'Normal'}:{id:key.slice(0,pos),finish:key.slice(pos+2)};}
-function blankState(){return {version:1,stock:{},printings:{},decks:[],activity:[],extraLocations:{},locationNames:[],manualWishlist:{}};}
-function loadState(){try{let raw=JSON.parse(localStorage.getItem(DATA_KEY));if(!raw||!raw.stock||!Array.isArray(raw.decks)||!raw.printings)return blankState();return {...blankState(),...raw,activity:Array.isArray(raw.activity)?raw.activity:[],extraLocations:raw.extraLocations&&typeof raw.extraLocations==='object'?raw.extraLocations:{},locationNames:Array.isArray(raw.locationNames)?raw.locationNames:[],manualWishlist:raw.manualWishlist&&typeof raw.manualWishlist==='object'?raw.manualWishlist:{}};}catch(e){return blankState();}}
+function blankState(){return {version:1,stock:{},printings:{},decks:[],activity:[],extraLocations:{},locationNames:[],manualWishlist:{},artworkOverrides:{}};}
+function loadState(){try{let raw=JSON.parse(localStorage.getItem(DATA_KEY));if(!raw||!raw.stock||!Array.isArray(raw.decks)||!raw.printings)return blankState();return {...blankState(),...raw,activity:Array.isArray(raw.activity)?raw.activity:[],extraLocations:raw.extraLocations&&typeof raw.extraLocations==='object'?raw.extraLocations:{},locationNames:Array.isArray(raw.locationNames)?raw.locationNames:[],manualWishlist:raw.manualWishlist&&typeof raw.manualWishlist==='object'?raw.manualWishlist:{},artworkOverrides:raw.artworkOverrides&&typeof raw.artworkOverrides==='object'&&!Array.isArray(raw.artworkOverrides)?raw.artworkOverrides:{}};}catch(e){return blankState();}}
 function save(){try{localStorage.setItem(DATA_KEY,JSON.stringify(state));return true;}catch(e){toast('Unable to save locally. Export your JSON backup and check browser storage.',true);return false;}}
 function logActivity(message,key=null,kind='change'){state.activity.unshift({id:uid(),message,key,kind,at:new Date().toISOString()});state.activity=state.activity.slice(0,500);}
 function toast(message,error=false){const root=document.getElementById('toast-container');const el=document.createElement('div');el.className='toast'+(error?' error':'');el.textContent=message;root.appendChild(el);setTimeout(()=>el.remove(),4200);}
@@ -464,9 +464,21 @@ function isAlternateRunePrinting(p){
  return (normalizeName(p.type)==='rune'||isBasicRuneName(p.name))&&
   (p.isAltArt||/^[A-Z0-9]{2,5}(?:R\d{2}|\d{3})A$/.test(code));
 }
+// v1.30: user-confirmed artwork is separate from provider-verified artwork.
+// Store by the full collector code (including a/* suffix) in the existing
+// JSON-backed state, so exports, restore and automatic snapshots retain it.
+function manualArtKey(p){return normalizedCode(p?.code||p?.publicCode||'')||String(p?.id||'');}
+function manualArtFor(p){
+ const v=state.artworkOverrides?.[manualArtKey(p)];
+ if(!v||v.status!=='user-verified'||typeof v.src!=='string')return null;
+ if(/^https:\/\/[^\s<>"']{1,1800}$/.test(v.src)||/^data:image\/jpeg;base64,[a-z0-9+/=]+$/i.test(v.src))return v;
+ return null;
+}
+function artworkVerificationStatus(p){return manualArtFor(p)?'User verified':isAlternateRunePrinting(p)?getVerifiedRuneArt(p)?'Source verified':'Unverified':p?.imageUrl?'Catalogue image':'Unverified';}
 function verifiedRuneArtKey(p){return normalizedCode(p?.code||p?.publicCode||'')+'~~'+String(p?.printingId||'');}
 function getVerifiedRuneArt(p){return p&&verifiedRuneArt.get(verifiedRuneArtKey(p))||null;}
 function runeArtworkUrl(p,size='normal'){
+ const manual=manualArtFor(p);if(manual)return manual.src;
  if(!isAlternateRunePrinting(p))return p?.imageUrl||'';
  const verified=getVerifiedRuneArt(p);
  return verified?(verified[size]||verified.normal):'';
@@ -503,7 +515,7 @@ async function verifyAlternateRuneArtwork(p){
     throw new Error('A verified alternate-art image was not returned');
    }
    verifiedRuneArt.set(key,{normal,large,at:Date.now()});storeVerifiedRuneArt();
-   if(ui.tab==='decks'||ui.modal?.type==='image-preview'||ui.modal?.type==='printing-detail')render();
+   if(ui.tab==='decks'||['image-preview','printing-detail','artwork-verification'].includes(ui.modal?.type))render();
    return normal;
   }catch(error){console.warn('Exact Rune art unavailable for '+p.code+':',error);return '';
   }finally{pendingRuneArt.delete(key);}
@@ -521,12 +533,12 @@ function verifyDisplayedAlternateRuneArtwork(){
   for(const [key,count] of Object.entries(deck.allocations?.[entry.id]||{})){
    if(Number(count)<=0)continue;
    const card=getMeta(unpackKey(key).id),id=verifiedRuneArtKey(card);
-   if(!isAlternateRunePrinting(card)||visited.has(id))continue;
+   if(!isAlternateRunePrinting(card)||manualArtFor(card)||visited.has(id))continue;
    visited.add(id);void verifyAlternateRuneArtwork(card);
   }
  }
 }
-function cardArt(p,cl=''){const focusClass=p&&(isOvernumberedPrinting(p)||isSignaturePrinting(p))?' art-focus-over':'';const imgClass=(cl||'')+focusClass;if(isAlternateRunePrinting(p)&&!getVerifiedRuneArt(p))return exactRuneArtPlaceholder(p);const artUrl=runeArtworkUrl(p);return p&&artUrl?`<img class="${imgClass.trim()}" loading="lazy" src="${escapeHtml(artUrl)}" alt="${escapeHtml(p.name)} card art" onerror="this.style.display='none'"/>`:`<span class="placeholder-art">✦</span>`;}
+function cardArt(p,cl=''){const focusClass=p&&(isOvernumberedPrinting(p)||isSignaturePrinting(p))?' art-focus-over':'';const imgClass=(cl||'')+focusClass;if(isAlternateRunePrinting(p)&&!manualArtFor(p)&&!getVerifiedRuneArt(p))return exactRuneArtPlaceholder(p);const artUrl=runeArtworkUrl(p);return p&&artUrl?`<img class="${imgClass.trim()}" loading="lazy" src="${escapeHtml(artUrl)}" alt="${escapeHtml(p.name)} card art" onerror="this.style.display='none'"/>`:`<span class="placeholder-art">✦</span>`;}
 function fmt(n){return new Intl.NumberFormat('en-US').format(n||0);}
 function shortDate(date){try{return new Date(date).toLocaleDateString(undefined,{month:'short',day:'numeric'});}catch(e){return '';}}
 function statusNote(){return catalogReady?`${catalog.length.toLocaleString()} printings loaded`:`${catalog.length} starter printings • online catalogue pending`;}
@@ -1034,7 +1046,7 @@ function zipStore(files){const chunks=[],central=[];let offset=0;const write=(by
 function xlsxBlob(sheets){const files=[];const ct=`<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`;files.push(['[Content_Types].xml',ct]);files.push(['_rels/.rels',`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`]);files.push(['xl/workbook.xml',`<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s,i)=>`<sheet name="${xml(s.name)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join('')}</sheets></workbook>`]);files.push(['xl/_rels/workbook.xml.rels',`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join('')}</Relationships>`]);sheets.forEach((s,i)=>files.push([`xl/worksheets/sheet${i+1}.xml`,sheetXml(s.rows)]));return zipStore(files);}
 function exportExcel(){const inventory=[['Card code','Card name','Set','Rarity','Finish','Total owned','Bulk','Assigned to decks']];for(const e of ownedEntries())inventory.push([e.card.code,e.card.name,e.card.setName,e.card.rarity,e.finish,e.qty,e.bulk,e.qty-e.bulk]);const locations=[['Card code','Card name','Finish','Location','Copies','Section']];for(const e of ownedEntries()){if(e.bulk)locations.push([e.card.code,e.card.name,e.finish,'Bulk',e.bulk,'']);for(const d of state.decks){for(const entry of d.entries){const qty=Number(d.allocations?.[entry.id]?.[e.key]||0);if(qty)locations.push([e.card.code,e.card.name,e.finish,d.name,qty,SECTION_LABEL[entry.section]]);}}}const requirements=[['Deck','Section','Card name','Collector code (if specified)','Required','Assigned','Still missing','Available in Bulk','In other decks']];for(const d of state.decks)for(const e of d.entries)requirements.push([d.name,SECTION_LABEL[e.section],e.name,e.code||'',e.required,entryAssigned(d,e),Math.max(0,e.required-entryAssigned(d,e)),entryBulk(e),entryElsewhere(e,d)]);const summary=[['RiftVault collection summary','Value'],['Exported at',new Date().toISOString()],['Total owned copies',totalOwned()],['Unique card names',uniqueOwned()],['Copies in Bulk',totalBulk()],['Copies in decks',totalOwned()-totalBulk()-totalStorage()],['Saved decks',state.decks.length],[],['Notes','Assignments are included in Total owned, not additional copies.'],['Notes','Imported deck requirements do not imply ownership.'],['Notes','Source: https://github.com/slimtreble/Riftbound-card-data']];const blob=xlsxBlob([{name:'Summary',rows:summary},{name:'Inventory',rows:inventory},{name:'Locations',rows:locations},{name:'Deck requirements',rows:requirements}]);download('RiftVault-Inventory-'+new Date().toISOString().slice(0,10)+'.xlsx',blob,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');toast('Excel workbook exported: Inventory, Locations, Deck requirements & Summary.');}
 function exportBackup(){download('RiftVault-Backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({type:'RiftVaultBackup',exportedAt:new Date().toISOString(),data:state,bilgewaterPrices:bilgewaterPrices},null,2),'application/json');localStorage.setItem('riftvault-last-backup',new Date().toISOString());toast('Full collection backup exported.');render();}
-async function restoreJson(file){if(!file)return;let raw;try{raw=JSON.parse(await file.text());let s=raw.type==='RiftVaultBackup'?raw.data:raw;if(!s||!s.stock||!s.printings||!Array.isArray(s.decks)||typeof s.stock!=='object'||typeof s.printings!=='object')throw new Error('Not a RiftVault backup');if(!confirm('Replace your current collection and all decks with this backup?'))return;if(raw.type==='RiftVaultBackup'&&raw.bilgewaterPrices&&typeof raw.bilgewaterPrices==='object'&&!Array.isArray(raw.bilgewaterPrices)){bilgewaterPrices=raw.bilgewaterPrices;saveBilgewaterPrices();}state={...blankState(),...s,locationNames:Array.isArray(s.locationNames)?s.locationNames:[],extraLocations:s.extraLocations&&typeof s.extraLocations==='object'?s.extraLocations:{},manualWishlist:s.manualWishlist&&typeof s.manualWishlist==='object'?s.manualWishlist:{}};save();rebuildIndexes();render();toast('Backup restored successfully.');}catch(e){toast('Could not restore JSON: '+e.message,true);}}
+async function restoreJson(file){if(!file)return;let raw;try{raw=JSON.parse(await file.text());let s=raw.type==='RiftVaultBackup'?raw.data:raw;if(!s||!s.stock||!s.printings||!Array.isArray(s.decks)||typeof s.stock!=='object'||typeof s.printings!=='object')throw new Error('Not a RiftVault backup');if(!confirm('Replace your current collection and all decks with this backup?'))return;if(raw.type==='RiftVaultBackup'&&raw.bilgewaterPrices&&typeof raw.bilgewaterPrices==='object'&&!Array.isArray(raw.bilgewaterPrices)){bilgewaterPrices=raw.bilgewaterPrices;saveBilgewaterPrices();}state={...blankState(),...s,locationNames:Array.isArray(s.locationNames)?s.locationNames:[],extraLocations:s.extraLocations&&typeof s.extraLocations==='object'?s.extraLocations:{},manualWishlist:s.manualWishlist&&typeof s.manualWishlist==='object'?s.manualWishlist:{},artworkOverrides:s.artworkOverrides&&typeof s.artworkOverrides==='object'&&!Array.isArray(s.artworkOverrides)?s.artworkOverrides:{}};save();rebuildIndexes();render();toast('Backup restored successfully.');}catch(e){toast('Could not restore JSON: '+e.message,true);}}
 
 // Hands-free OCR. Video and OCR remain local to the browser; images are not uploaded by this code.
 function delay(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
@@ -1814,7 +1826,7 @@ function modalPrintingDetail(){
  const quoteNormal=quoteFor(p,'Normal'),quoteFoil=quoteFor(p,'Foil');
  const locationRows=locations.length?locations.map(r=>`<div class="location-row"><div><strong>${escapeHtml(r.label)}</strong><div class="muted micro">${escapeHtml(r.finish)}</div></div><strong>${r.quantity}</strong></div>`).join(''):'<p class="muted small">No copies of this printing recorded yet.</p>';
  return modalShell(p.name,`${p.code||p.id} · ${p.setName||p.set} · ${label} · ${count} owned`,
- `<div class="printing-detail-layout"><button type="button" class="printing-detail-art card-zoom-trigger" data-action="image-preview" data-id="${escapeHtml(p.id)}" title="Enlarge artwork" aria-label="Enlarge ${escapeHtml(p.name)} artwork">${cardArt(p)}<span class="zoom-hint">⌕ Tap to enlarge</span></button><div class="printing-detail-side">${banDetailNotice(p.name)}<div class="eyebrow">WHERE ARE MY CARDS?</div><div class="mt16">${locationRows}</div><div class="printing-qty-breakdown"><span>Non-foil <strong>${ownedQty(normal)}</strong></span><span>Foil <strong>${ownedQty(foil)}</strong></span></div><h3>Add this printing to Bulk</h3><p class="muted small">Adds one copy of ${escapeHtml(p.code)} only — not another artwork.</p><div class="row wrap"><select class="select" data-card-finish="${escapeHtml(p.id)}" aria-label="Finish for ${escapeHtml(p.code)}">${finishSelectOptions(p)}</select><button class="btn btn-green-outline" data-action="add-from-detail" data-id="${escapeHtml(p.id)}">＋ Add to Bulk</button></div></div></div>
+ `<div class="printing-detail-layout"><button type="button" class="printing-detail-art card-zoom-trigger" data-action="image-preview" data-id="${escapeHtml(p.id)}" title="Enlarge artwork" aria-label="Enlarge ${escapeHtml(p.name)} artwork">${cardArt(p)}<span class="zoom-hint">⌕ Tap to enlarge</span></button><div class="printing-detail-side">${banDetailNotice(p.name)}<div class="eyebrow">WHERE ARE MY CARDS?</div><div class="mt16">${locationRows}</div><div class="printing-qty-breakdown"><span>Non-foil <strong>${ownedQty(normal)}</strong></span><span>Foil <strong>${ownedQty(foil)}</strong></span></div><div class="rv-artwork-status"><span>${escapeHtml(artworkVerificationStatus(p))}</span><button class="btn btn-small btn-ghost" data-action="art-verify-open" data-id="${escapeHtml(p.id)}">Verify / change artwork</button></div><h3>Add this printing to Bulk</h3><p class="muted small">Adds one copy of ${escapeHtml(p.code)} only — not another artwork.</p><div class="row wrap"><select class="select" data-card-finish="${escapeHtml(p.id)}" aria-label="Finish for ${escapeHtml(p.code)}">${finishSelectOptions(p)}</select><button class="btn btn-green-outline" data-action="add-from-detail" data-id="${escapeHtml(p.id)}">＋ Add to Bulk</button></div></div></div>
  <div class="panel printing-detail-prices"><div class="row-between wrap"><h3>TCGplayer market prices</h3><span class="muted micro">USD · RiftHunt daily estimates</span></div><div class="printing-price-grid"><div><span>Non-foil</span><strong>${priceHtml(quoteNormal)}</strong></div><div><span>Foil</span><strong>${priceHtml(quoteFoil)}</strong></div></div><div class="row wrap mt16"><a class="btn btn-small btn-ghost" href="${escapeHtml(bilgewaterLink(p))}" target="_blank" rel="noopener noreferrer">Bilgewater Market ↗</a><button class="btn btn-small btn-ghost" data-action="bw-price-open" data-id="${escapeHtml(p.id)}" data-finish="${knownPrintingFinish(p)||'Normal'}">Bilgewater note</button></div></div>`,
  '<button class="btn" data-action="close-modal">Close</button>',true);
 }
@@ -1822,10 +1834,104 @@ function modalImagePreview(){
  const p=getMeta(ui.modal.id),finish=ui.modal.finish||knownPrintingFinish(p)||'';
  const imageUrl=runeArtworkUrl(p,'large');
  const artwork=imageUrl?`<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(p.name)} ${escapeHtml(p.code)} full artwork" draggable="false" onerror="this.style.display='none';this.parentElement.classList.add('artwork-unavailable')" />`:'<p class="muted">No high-resolution artwork available for this printing.</p>';
- return `<div class="art-preview-backdrop" data-action="art-preview-close"><section class="art-preview-dialog" role="dialog" aria-modal="true" aria-label="Card artwork for ${escapeHtml(p.name)}" tabindex="-1"><div class="art-preview-header"><div><strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(p.code||p.id)} · ${escapeHtml(p.setName||p.set||'')}${finish?' · '+escapeHtml(finish):''}</span></div><div class="row"><button type="button" class="btn btn-small btn-ghost" data-action="art-preview-zoom" aria-label="Zoom artwork">Zoom ＋</button><button type="button" class="btn btn-icon btn-ghost" data-action="art-preview-close" aria-label="Close artwork preview">×</button></div></div><div class="art-preview-scroll" id="art-preview-scroll">${artwork}</div><div class="art-preview-footer">Pinch to zoom on your phone, or use Zoom + to enlarge card text.</div></section></div>`;
+ return `<div class="art-preview-backdrop" data-action="art-preview-close"><section class="art-preview-dialog" role="dialog" aria-modal="true" aria-label="Card artwork for ${escapeHtml(p.name)}" tabindex="-1"><div class="art-preview-header"><div><strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(p.code||p.id)} · ${escapeHtml(p.setName||p.set||'')}${finish?' · '+escapeHtml(finish):''}</span></div><div class="row"><button type="button" class="btn btn-small btn-ghost" data-action="art-verify-open" data-id="${escapeHtml(p.id)}">Verify artwork</button><button type="button" class="btn btn-small btn-ghost" data-action="art-preview-zoom" aria-label="Zoom artwork">Zoom ＋</button><button type="button" class="btn btn-icon btn-ghost" data-action="art-preview-close" aria-label="Close artwork preview">×</button></div></div><div class="art-preview-scroll" id="art-preview-scroll">${artwork}</div><div class="art-preview-footer">${escapeHtml(artworkVerificationStatus(p))} · Pinch to zoom or use Zoom + to enlarge card text.</div></section></div>`;
 }
+// Artwork verification screen: retried provider images are labelled separately
+// from user choices. A file is resized locally to limit backup size; no upload.
+function modalArtworkVerification(){
+ const p=getMeta(ui.modal.id),manual=manualArtFor(p),source=getVerifiedRuneArt(p);
+ const candidate=ui.artCandidate||null;
+ const sourceUrl=isAlternateRunePrinting(p)?(source?.large||source?.normal||''):(p?.imageUrl||'');
+ const showing=candidate?.src||manual?.src||sourceUrl;
+ const label=candidate?.src?'Selected candidate — not yet saved':manual?'User verified':sourceUrl?artworkVerificationStatus(p):'Artwork unverified';
+ const currentCode=escapeHtml(p.code||p.id);
+ const image=showing?`<img src="${escapeHtml(showing)}" alt="Candidate artwork for ${escapeHtml(p.name)} ${currentCode}" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('artwork-unavailable')"/>`:'<span class="rv-artwork-empty">Artwork unavailable. Retry or choose your own image.</span>';
+ return modalShell('Verify artwork',`${p.name} · ${p.code} · ${printingLabel(p)}`,
+ `<div class="rv-artwork-verify"><div class="rv-artwork-verify-status"><strong>${escapeHtml(label)}</strong><span>Code: ${currentCode} · ${escapeHtml(p.set||'')}</span></div><div class="rv-artwork-candidate">${image}</div><p class="muted small">Compare the picture to your physical card. Source-verified means the provider's printing data matched; User verified means you selected and confirmed the image yourself.</p>
+ <div class="rv-artwork-actions"><button class="btn btn-primary" data-action="art-source-retry" data-id="${escapeHtml(p.id)}" ${isAlternateRunePrinting(p)?'':'disabled'}>↻ Retry source lookup</button>${(candidate?.src||sourceUrl)?`<button class="btn btn-green-outline" data-action="art-manual-confirm" data-id="${escapeHtml(p.id)}">✓ Yes, this is my artwork</button>`:''}</div>
+ <div class="rv-artwork-select"><label class="form-field"><span>Choose a photo or card image on this device (JPEG, PNG or WebP)</span><input type="file" id="rv-artwork-file" accept="image/jpeg,image/png,image/webp" /></label><p class="muted micro">Images are resized on this device and stored inside your local collection backup. Do not use a very large image.</p><label class="form-field"><span>Or enter a direct HTTPS image URL</span><input id="rv-artwork-url" class="input" type="url" placeholder="https://.../exact-rune-art.jpg" maxlength="1800" value="${candidate?.kind==='url'?escapeHtml(candidate.src):''}" /></label><button class="btn btn-ghost" data-action="art-url-preview">Preview image URL</button></div>
+ ${manual?'<button class="btn btn-danger btn-small" data-action="art-manual-remove">Remove my artwork choice</button>':''}
+ </div>`, '<button class="btn btn-ghost" data-action="art-verify-close">Done</button>',true);
+}
+function openArtworkVerification(id){
+ const p=getMeta(id);if(!p?.id)return;
+ ui.artVerifyReturn=ui.modal?{...ui.modal}:null;ui.artCandidate=null;
+ ui.modal={type:'artwork-verification',id:p.id};renderModal();
+}
+function closeArtworkVerification(){ui.artCandidate=null;ui.modal=ui.artVerifyReturn||null;ui.artVerifyReturn=null;renderModal();}
+function confirmArtworkOverride(p,src){
+ if(!(typeof src==='string'&&( /^https:\/\/[^\s<>"']{1,1800}$/.test(src)||/^data:image\/jpeg;base64,[a-z0-9+/=]+$/i.test(src)))){toast('Choose a supported artwork image first.',true);return false;}
+ const key=manualArtKey(p);
+ if(!key){toast('Exact printing code is unavailable.',true);return false;}
+ state.artworkOverrides=state.artworkOverrides||{};
+ const previous=state.artworkOverrides[key];
+ state.artworkOverrides[key]={src,status:'user-verified',code:p.code||'',id:p.id,updatedAt:new Date().toISOString()};
+ if(!save()){
+   if(previous)state.artworkOverrides[key]=previous;else delete state.artworkOverrides[key];
+   toast('Could not save artwork. Try a smaller image or export a backup.',true);return false;
+ }
+ return true;
+}
+async function fileForArtwork(file){
+ if(!file||!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>8*1024*1024)throw Error('Choose a JPEG, PNG or WebP under 8 MB.');
+ const bitmap=await createImageBitmap(file),w=bitmap.width,h=bitmap.height;
+ if(!w||!h||w/h>3||h/w>4)throw Error('Choose a regular card image or photo.');
+ const scale=Math.min(1,900/w,1250/h);const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(w*scale));canvas.height=Math.max(1,Math.round(h*scale));
+ const ctx=canvas.getContext('2d');if(!ctx)throw Error('Image conversion unavailable on this phone.');
+ ctx.fillStyle='#111b2d';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();
+ const url=canvas.toDataURL('image/jpeg',0.78);
+ if(url.length>1300000)throw Error('Image is too large for a local backup.');
+ return url;
+}
+// Catch artwork controls before older generic document handlers; never alter stock.
+document.addEventListener('click',event=>{
+ const btn=event.target.closest('[data-action]');if(!btn)return;
+ const action=btn.dataset.action;
+ if(!['art-verify-open','art-verify-close','art-source-retry','art-url-preview','art-manual-confirm','art-manual-remove'].includes(action))return;
+ event.preventDefault();event.stopImmediatePropagation();
+ if(action==='art-verify-open'){openArtworkVerification(btn.dataset.id);return;}
+ if(action==='art-verify-close'){closeArtworkVerification();return;}
+ if(ui.modal?.type!=='artwork-verification')return;
+ const p=getMeta(ui.modal.id);
+ if(action==='art-source-retry'){
+   if(!isAlternateRunePrinting(p)){toast('Source retry currently supports alternate-art Runes.',true);return;}
+   const key=verifiedRuneArtKey(p),old=getVerifiedRuneArt(p);verifiedRuneArt.delete(key);
+   btn.disabled=true;btn.textContent='Checking…';
+   void verifyAlternateRuneArtwork(p).then(url=>{
+     if(!url&&old){verifiedRuneArt.set(key,old);storeVerifiedRuneArt();}
+     if(ui.modal?.type==='artwork-verification')renderModal();
+     toast(url?'Exact Rune image checked against provider.':'Could not verify exact artwork. You can select it manually.',!url);
+   });return;
+ }
+ if(action==='art-url-preview'){
+   const src=document.getElementById('rv-artwork-url')?.value.trim()||'';
+   if(!/^https:\/\/[^\s<>"']{1,1800}$/.test(src)){toast('Enter a direct HTTPS image URL.',true);return;}
+   ui.artCandidate={kind:'url',src};renderModal();return;
+ }
+ if(action==='art-manual-confirm'){
+   const visibleImage=document.querySelector('.rv-artwork-candidate img');
+   if(!visibleImage?.complete||!visibleImage.naturalWidth){toast('Preview the image successfully before confirming it.',true);return;}
+   const src=ui.artCandidate?.src||(isAlternateRunePrinting(p)?getVerifiedRuneArt(p)?.large||getVerifiedRuneArt(p)?.normal:p.imageUrl)||'';
+   if(confirmArtworkOverride(p,src)){ui.artCandidate=null;renderModal();toast('Artwork saved as User verified. Card quantities and finish are unchanged.');}
+   return;
+ }
+ if(action==='art-manual-remove'){
+   if(!manualArtFor(p))return;
+   delete state.artworkOverrides[manualArtKey(p)];if(!save()){toast('Could not update artwork storage.',true);return;}
+   ui.artCandidate=null;renderModal();toast('Manual artwork choice removed.');
+ }
+},true);
+document.addEventListener('change',event=>{
+ if(event.target?.id!=='rv-artwork-file'||ui.modal?.type!=='artwork-verification')return;
+ const id=ui.modal.id;
+ void fileForArtwork(event.target.files?.[0]).then(src=>{
+   if(ui.modal?.type!=='artwork-verification'||ui.modal.id!==id)return;
+   ui.artCandidate={kind:'file',src};renderModal();toast('Image ready. Compare it, then confirm.');
+ }).catch(e=>toast(e.message,true));
+},true);
 const renderModalBeforeV117=renderModal;
 renderModal=function(){
+ if(ui.modal?.type==='artwork-verification'){document.getElementById('modal-root').innerHTML=modalArtworkVerification();return;}
  if(ui.modal?.type==='printing-detail'){
   document.getElementById('modal-root').innerHTML=modalPrintingDetail();return;
  }
@@ -1837,14 +1943,11 @@ renderModal=function(){
 };
 function openArtworkPreview(id,finish=''){
  const p=getMeta(id);
- if(isAlternateRunePrinting(p)&&!getVerifiedRuneArt(p)){
-  toast('Checking exact alternate-art Rune image...');
-  void verifyAlternateRuneArtwork(p).then(url=>{
-   if(url&&getVerifiedRuneArt(getMeta(id)))openArtworkPreview(id,finish);
-   else toast('Exact artwork unavailable. Showing the printed code, not the regular Rune art.',true);
-  });return;
+ if(isAlternateRunePrinting(p)&&!manualArtFor(p)&&!getVerifiedRuneArt(p)){
+  openArtworkVerification(id);
+  toast('Artwork unverified. Retry source lookup or select an image yourself.');return;
  }
- if(!runeArtworkUrl(p)){toast('Artwork unavailable for this printing.',true);return;}
+ if(!runeArtworkUrl(p)){openArtworkVerification(id);return;}
  ui.previewReturn=ui.modal&&ui.modal.type!=='image-preview'?{...ui.modal}:null;
  ui.modal={type:'image-preview',id,finish};renderModal();
 }
