@@ -147,6 +147,20 @@ let allPrintings = new Map();
 let nameIndex = new Map();
 let codeIndex = new Map();
 let state = loadState();
+// v1.29: alternate-art Rune images must be verified against the immutable
+// RiftHunt printing UUID before they are displayed; never reuse the base art.
+const RUNE_ALT_ART_CACHE_KEY='riftvault-verified-alt-rune-art-v129';
+const verifiedRuneArt=new Map();
+const pendingRuneArt=new Map();
+try{
+ const stored=JSON.parse(localStorage.getItem(RUNE_ALT_ART_CACHE_KEY)||'[]');
+ if(Array.isArray(stored))for(const item of stored){
+  if(!Array.isArray(item)||item.length!==3)continue;
+  const [key,art,at]=item;
+  if(typeof key==='string'&&art&&typeof at==='number'&&Date.now()-at<7*86400000&&
+    /^https:\/\/images\.rifthunt\.com\//i.test(String(art.normal||'')))verifiedRuneArt.set(key,{...art,at});
+ }
+}catch(e){console.warn('Rune artwork cache could not be read:',e);}
 let ui = {tab:'overview',query:'',ownedOnly:false,setFilter:'all',inventoryQuery:'',deckId:null,modal:null,importText:'',importName:'Jinx Deck',variantFinish:'Normal',addCardQuery:'',addCardQuantity:1,addCardSection:'MainDeck',selectedSet:'all'};
 let priceState = {status:'loading', fetchedAt:null, checkedAt:null, entries:[], byLegacy:new Map(), byCode:new Map(), byPrinting:new Map(), error:'', market:'tcgplayer', cached:false};
 try { const pc=JSON.parse(localStorage.getItem(PRICE_CACHE_KEY));if(pc && Array.isArray(pc.entries) && pc.entries.length>200){priceState.entries=pc.entries;priceState.fetchedAt=pc.fetchedAt;priceState.checkedAt=pc.checkedAt||pc.fetchedAt;priceState.cached=true;priceState.status='ready';} }catch(e){}
@@ -442,7 +456,77 @@ function locationSummary(name){const rows=[];const matchingIds=new Set(printings
 function findDeck(id){return state.decks.find(d=>d.id===id);}
 function setTab(tab){if(scanner.running||scanner.starting)stopScanner();ui.tab=tab;ui.deckId=null;ui.modal=null;render();window.scrollTo(0,0);}
 function download(name,content,type){let blob=new Blob([content],{type:type||'application/octet-stream'});let url=URL.createObjectURL(blob);let a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-function cardArt(p,cl=''){const focusClass=p&&(isOvernumberedPrinting(p)||isSignaturePrinting(p))?' art-focus-over':'';const imgClass=(cl||'')+focusClass;return p&&p.imageUrl?`<img class="${imgClass.trim()}" loading="lazy" src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.name)} card art" onerror="this.style.display='none'"/>`:`<span class="placeholder-art">✦</span>`;}
+// Keep Rune artwork strict by exact code and printing ID. An alternate Rune
+// with an unverified source image shows a placeholder, NEVER the base printing.
+function isAlternateRunePrinting(p){
+ if(!p)return false;
+ const code=normalizedCode(p.code||p.publicCode||'');
+ return (normalizeName(p.type)==='rune'||isBasicRuneName(p.name))&&
+  (p.isAltArt||/^[A-Z0-9]{2,5}(?:R\d{2}|\d{3})A$/.test(code));
+}
+function verifiedRuneArtKey(p){return normalizedCode(p?.code||p?.publicCode||'')+'~~'+String(p?.printingId||'');}
+function getVerifiedRuneArt(p){return p&&verifiedRuneArt.get(verifiedRuneArtKey(p))||null;}
+function runeArtworkUrl(p,size='normal'){
+ if(!isAlternateRunePrinting(p))return p?.imageUrl||'';
+ const verified=getVerifiedRuneArt(p);
+ return verified?(verified[size]||verified.normal):'';
+}
+function exactRuneArtPlaceholder(p){
+ return `<span class="placeholder-art rv-rune-image-unverified" title="Exact alternate artwork not yet verified for ${escapeHtml(p?.code||'')}">Alt art<br>not verified</span>`;
+}
+function storeVerifiedRuneArt(){
+ try{localStorage.setItem(RUNE_ALT_ART_CACHE_KEY,JSON.stringify([...verifiedRuneArt.entries()].map(([key,v])=>[key,{normal:v.normal,large:v.large},v.at])));}catch(e){console.warn('Rune artwork cache not saved:',e);}
+}
+// Only on-demand variants currently shown in a deck are requested. This is
+// one API request per unique printing, not a crawl of the full card database.
+async function verifyAlternateRuneArtwork(p){
+ if(!isAlternateRunePrinting(p))return p?.imageUrl||'';
+ const key=verifiedRuneArtKey(p),known=getVerifiedRuneArt(p);
+ if(known)return known.normal;
+ if(pendingRuneArt.has(key))return pendingRuneArt.get(key);
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(p.printingId||'')))return '';
+ const promise=(async()=>{
+  try{
+   const response=await fetch('https://api.rifthunt.com/cards/'+encodeURIComponent(p.printingId),{cache:'force-cache'});
+   if(!response.ok)throw new Error('HTTP '+response.status);
+   const data=await response.json();
+   const received=normalizedCode(String(data.set||'')+'-'+String(data.collector_number||''));
+   const expected=normalizedCode(p.code||p.publicCode||'');
+   if(String(data.printing_id||data.id||'').toLowerCase()!==String(p.printingId).toLowerCase()||
+      received!==expected||normalizeName(data.type)!=='rune'||
+      !/A$/.test(received)||String(data.variant||'').toLowerCase()!=='alternate'){
+    throw new Error('Printing ID, code or alternate-art status did not match');
+   }
+   const normal=String(data.images?.normal||data.images?.large||'');
+   const large=String(data.images?.large||normal);
+   if(!/^https:\/\/images\.rifthunt\.com\//i.test(normal)||!/^https:\/\/images\.rifthunt\.com\//i.test(large)){
+    throw new Error('A verified alternate-art image was not returned');
+   }
+   verifiedRuneArt.set(key,{normal,large,at:Date.now()});storeVerifiedRuneArt();
+   if(ui.tab==='decks'||ui.modal?.type==='image-preview'||ui.modal?.type==='printing-detail')render();
+   return normal;
+  }catch(error){console.warn('Exact Rune art unavailable for '+p.code+':',error);return '';
+  }finally{pendingRuneArt.delete(key);}
+ })();
+ pendingRuneArt.set(key,promise);
+ return promise;
+}
+// Rendered gallery thumbnails are explicitly labelled by exact code and ID.
+// Refuse to display base artwork while the variant-specific API call is pending.
+function verifyDisplayedAlternateRuneArtwork(){
+ if(ui.tab!=='decks'||!ui.deckId)return;
+ const deck=findDeck(ui.deckId);if(!deck)return;
+ const visited=new Set();
+ for(const entry of deck.entries.filter(e=>e.section==='Runes')){
+  for(const [key,count] of Object.entries(deck.allocations?.[entry.id]||{})){
+   if(Number(count)<=0)continue;
+   const card=getMeta(unpackKey(key).id),id=verifiedRuneArtKey(card);
+   if(!isAlternateRunePrinting(card)||visited.has(id))continue;
+   visited.add(id);void verifyAlternateRuneArtwork(card);
+  }
+ }
+}
+function cardArt(p,cl=''){const focusClass=p&&(isOvernumberedPrinting(p)||isSignaturePrinting(p))?' art-focus-over':'';const imgClass=(cl||'')+focusClass;if(isAlternateRunePrinting(p)&&!getVerifiedRuneArt(p))return exactRuneArtPlaceholder(p);const artUrl=runeArtworkUrl(p);return p&&artUrl?`<img class="${imgClass.trim()}" loading="lazy" src="${escapeHtml(artUrl)}" alt="${escapeHtml(p.name)} card art" onerror="this.style.display='none'"/>`:`<span class="placeholder-art">✦</span>`;}
 function fmt(n){return new Intl.NumberFormat('en-US').format(n||0);}
 function shortDate(date){try{return new Date(date).toLocaleDateString(undefined,{month:'short',day:'numeric'});}catch(e){return '';}}
 function statusNote(){return catalogReady?`${catalog.length.toLocaleString()} printings loaded`:`${catalog.length} starter printings • online catalogue pending`;}
@@ -1413,6 +1497,10 @@ function migrateAltArtNonfoilRecords(){
 }
 indexPrices();rebuildIndexes();const foilFixed=migrateAltArtNonfoilRecords();render();loadCatalogue();loadRuneCatalogue();loadPrices();
 if(foilFixed)toast(`Corrected ${foilFixed} alternate-art printing(s) to foil-only. Inventory counts were preserved.`);
+// Check visible deck Rune variants when the deck view is rendered.
+const renderBeforeExactRuneArt=render;
+render=function(){renderBeforeExactRuneArt();verifyDisplayedAlternateRuneArtwork();};
+
 
 
 // App resume: each fresh visit starts with an empty Recent Scans panel.
@@ -1732,7 +1820,8 @@ function modalPrintingDetail(){
 }
 function modalImagePreview(){
  const p=getMeta(ui.modal.id),finish=ui.modal.finish||knownPrintingFinish(p)||'';
- const artwork=p.imageUrl?`<img src="${escapeHtml(p.imageUrl)}" alt="${escapeHtml(p.name)} ${escapeHtml(p.code)} full artwork" draggable="false" onerror="this.style.display='none';this.parentElement.classList.add('artwork-unavailable')" />`:'<p class="muted">No high-resolution artwork available for this printing.</p>';
+ const imageUrl=runeArtworkUrl(p,'large');
+ const artwork=imageUrl?`<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(p.name)} ${escapeHtml(p.code)} full artwork" draggable="false" onerror="this.style.display='none';this.parentElement.classList.add('artwork-unavailable')" />`:'<p class="muted">No high-resolution artwork available for this printing.</p>';
  return `<div class="art-preview-backdrop" data-action="art-preview-close"><section class="art-preview-dialog" role="dialog" aria-modal="true" aria-label="Card artwork for ${escapeHtml(p.name)}" tabindex="-1"><div class="art-preview-header"><div><strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(p.code||p.id)} · ${escapeHtml(p.setName||p.set||'')}${finish?' · '+escapeHtml(finish):''}</span></div><div class="row"><button type="button" class="btn btn-small btn-ghost" data-action="art-preview-zoom" aria-label="Zoom artwork">Zoom ＋</button><button type="button" class="btn btn-icon btn-ghost" data-action="art-preview-close" aria-label="Close artwork preview">×</button></div></div><div class="art-preview-scroll" id="art-preview-scroll">${artwork}</div><div class="art-preview-footer">Pinch to zoom on your phone, or use Zoom + to enlarge card text.</div></section></div>`;
 }
 const renderModalBeforeV117=renderModal;
@@ -1747,7 +1836,15 @@ renderModal=function(){
  return renderModalBeforeV117();
 };
 function openArtworkPreview(id,finish=''){
- const p=getMeta(id);if(!p?.imageUrl){toast('Artwork unavailable for this printing.',true);return;}
+ const p=getMeta(id);
+ if(isAlternateRunePrinting(p)&&!getVerifiedRuneArt(p)){
+  toast('Checking exact alternate-art Rune image...');
+  void verifyAlternateRuneArtwork(p).then(url=>{
+   if(url&&getVerifiedRuneArt(getMeta(id)))openArtworkPreview(id,finish);
+   else toast('Exact artwork unavailable. Showing the printed code, not the regular Rune art.',true);
+  });return;
+ }
+ if(!runeArtworkUrl(p)){toast('Artwork unavailable for this printing.',true);return;}
  ui.previewReturn=ui.modal&&ui.modal.type!=='image-preview'?{...ui.modal}:null;
  ui.modal={type:'image-preview',id,finish};renderModal();
 }

@@ -589,3 +589,7 @@ body{background:radial-gradient(circle at 90% 0%,#12447b1c,transparent 46%),#080
  .rv-rune-type-heading strong{font-size:15px}
 }
 @media(min-width:701px) and (max-width:970px){.rv-rune-cards{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* v1.29 — Never substitute a regular Rune image for an unverified alternate art. */
+.rv-rune-image-unverified{width:100%;min-height:65px;display:grid!important;place-content:center;text-align:center;color:#b9d1e9;background:#173149;border:1px dashed #6684a5;border-radius:6px;font-size:11px!important;line-height:1.35;white-space:normal;overflow-wrap:break-word}
+.rv-rune-copy .rv-rune-image-unverified{aspect-ratio:0.714;min-height:0}

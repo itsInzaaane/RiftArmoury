@@ -1,3 +1,15 @@
+# RiftVault v1.29 — Exact Alternate Rune Artwork Fix
+
+## Fix for VEN-R03a and other alternate-art Runes
+- Exact alternate-art Rune artwork is now verified on demand through RiftHunt's per-printing API (`/cards/:printing_id`), using the stable printing UUID. The response must match the exact set, collector number, Rune type and alternate-art variant.
+- Until validated, the app displays an **Alt art not verified** placeholder instead of risking the normal Rune image.
+- Once verified, each allocated Rune gallery copy and the full-size artwork viewer use the verified image URL and retain their own collector code and finish.
+- Verified image links are cached locally for seven days, separate from inventory storage. No changes to card quantities, deck allocations or pricing are made by this fix.
+- Existing v1.28 features are unchanged; original v1.28 notes follow.
+- Exact-art tests are in `tests/test_exact_rune_art.cjs` (run with `node tests/test_exact_rune_art.cjs`). Live loading from the provider and phone behaviour should still be verified after deploying.
+
+---
+
 # RiftVault v1.28 — Deck Availability and Grouped Rune Galleries
 
 A mobile/desktop Riftbound collection companion built on your v1.20 Blue Shield Edition. Existing inventory, foil/alt/signature printings, rune assignment, set images, TCGplayer/RiftHunt market prices, Bilgewater links, banned labels, decks, OCR scanning, Rules Library and Excel/JSON downloads are retained.
