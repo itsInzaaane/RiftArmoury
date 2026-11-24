@@ -76,27 +76,25 @@ def parse(source):
         if current in ('core','tournament') and item.name=='p':
             doc_dates[current]=doc_dates.get(current) or iso_date(t) if 'last updated' in l else doc_dates.get(current)
     # Defensive: avoid replacing known bans with incomplete lists.
-    if len(got['standard'])<8 or len(got['duo'])<len(got['standard']):
+    if len(got['standard'])<8 or len(got['duo'])<8 or max(len(got['standard']),len(got['duo']))>100:
         raise ValueError(f'Ban lists failed validation: standard={len(got["standard"])} duo={len(got["duo"])}')
     if not dates['standard'] or not dates['duo']:
         raise ValueError('Missing official ban effective dates')
     if not all(k in doc_urls for k in ('core','tournament')) or not all(doc_dates.get(k) for k in ('core','tournament')):
         raise ValueError('Could not verify latest official rulebook links and revision dates')
-    # Correct the occasional omission of the character's name in the 2v2
-    # title by using the canonical matching Standard name whenever possible.
-    main={normalize(row['name']):row for row in got['standard']}
-    main_compact={normalize(row['name']).replace(' ',''):row for row in got['standard']}
-    merged=list(got['standard'])
-    for extra in got['duo']:
-        key=normalize(extra['name'])
-        if key in main or key.replace(' ','') in main_compact:continue
-        # Draven Vanquisher on Riot's page omits a comma. Treat it as standard.
-        if key=='draven vanquisher':continue
-        merged.append(extra)
-    if len(merged)>100:raise ValueError('Unexpected ban-count size')
+    # Standard and 2v2 are independent official lists. Never take the union:
+    # Fight or Flight is on the Standard list but not the 2v2 list (Nov 2026).
+    # Riot occasionally spells Draven Vanquisher without a comma on the 2v2 page.
+    for item in got['duo']:
+        if normalize(item['name']) == 'draven vanquisher':
+            item['name'] = 'Draven, Vanquisher'
+    for format_name in ('standard', 'duo'):
+        keys=[normalize(r['name']) for r in got[format_name]]
+        if len(keys)!=len(set(keys)):
+            raise ValueError(f'Duplicate {format_name} banned entries')
     effective=max(dates.values())
     return {'source':URL,'checkedAt':TODAY.isoformat(timespec='seconds'),
-       'bans':{'effectiveAt':effective,'standard':got['standard'],'duo':merged},
+       'bans':{'effectiveAt':effective,'standard':got['standard'],'duo':got['duo']},
        'rules':{'coreUpdated':doc_dates['core'],'tournamentUpdated':doc_dates['tournament'],
                 'coreUrl':doc_urls['core'],'tournamentUrl':doc_urls['tournament']}}
 
@@ -109,7 +107,7 @@ def main():
     # Ban dates refer to the official format's currently active list. An
     # announcement with a future effective date should not mark cards early.
     if data['bans']['effectiveAt']>TODAY.date().isoformat():
-        print('Upcoming official list detected; keep prior active status until effective date')
+        print('Upcoming official list detected; clients should wait until effective date')
     if data['bans']!=previous.get('bans') or data['rules']!=previous.get('rules'):
         print('Official source contents changed; refreshing ban/rule metadata')
     OUTPUT.write_text(json.dumps(data,indent=2,ensure_ascii=False)+'\n')

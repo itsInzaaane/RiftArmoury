@@ -7,7 +7,7 @@ const BACKUP_EXTERNAL_KEY='riftvault-external-backup-date-v121';
 const RIFT_HUB='https://playriftbound.com/en-us/rules-hub/';
 let pointCounter={mode:'1v1',opponent:0,you:0,undo:[]};
 try{const old=JSON.parse(localStorage.getItem(POINT_COUNTER_KEY));if(old&&['1v1','2v2'].includes(old.mode))pointCounter={...pointCounter,...old,undo:Array.isArray(old.undo)?old.undo.slice(-50):[]};}catch(e){}
-let officialState={status:'offline',checkedAt:'',banEffective:'2026-09-18',rules:{coreUpdated:'2026-10-09',tournamentUpdated:'2026-10-09'},source:RIFT_HUB};
+let officialState={status:'bundled',checkedAt:'',banEffective:'2026-11-23',rules:{coreUpdated:'2026-10-09',tournamentUpdated:'2026-10-09'},source:RIFT_HUB};
 let officialCache=null;
 try{officialCache=JSON.parse(localStorage.getItem(OFFICIAL_CACHE_KEY));}catch(e){}
 let lastHeroId='';
@@ -20,12 +20,12 @@ function officialDate(val){if(!/^\d{4}-\d{2}-\d{2}$/.test(String(val||'')))retur
 function officialFeedValid(v){
  if(!v||v.source!==RIFT_HUB||!v.bans||!v.rules||!officialDate(v.bans.effectiveAt))return false;
  if(!Array.isArray(v.bans.standard)||!Array.isArray(v.bans.duo))return false;
- if(v.bans.standard.length<8||v.bans.standard.length>100||v.bans.duo.length<v.bans.standard.length)return false;
+ if(v.bans.standard.length<8||v.bans.standard.length>100||v.bans.duo.length<8||v.bans.duo.length>100)return false;
  if(!v.bans.standard.every(x=>typeof x.name==='string'&&x.name.length<100&&['Card','Battlefield','Legend'].includes(x.category)))return false;
  if(!v.bans.duo.every(x=>typeof x.name==='string'&&x.name.length<100&&['Card','Battlefield','Legend'].includes(x.category)))return false;
  if(!officialDate(v.rules.coreUpdated)||!officialDate(v.rules.tournamentUpdated))return false;
  for(const url of [v.rules.coreUrl,v.rules.tournamentUrl]){try{const u=new URL(url);if(u.protocol!=='https:'||!u.hostname.endsWith('.rgpub.io'))return false;}catch(e){return false;}}
- const s=new Set(v.bans.standard.map(x=>banMatchKey(x.name)));if(s.size!==v.bans.standard.length)return false;
+ for(const format of ['standard','duo']){const names=new Set(v.bans[format].map(x=>banMatchKey(x.name)));if(names.size!==v.bans[format].length)return false;}
  return true;
 }
 function applyOfficialFeed(v,fromCache=false){
@@ -35,11 +35,18 @@ function applyOfficialFeed(v,fromCache=false){
  const today=new Date();const todayUtc=Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),today.getUTCDate());
  if(effective<=todayUtc){
   const rows=new Map();
-  for(const entry of v.bans.standard){rows.set(banMatchKey(entry.name),{...entry});}
-  for(const entry of v.bans.duo){const key=banMatchKey(entry.name);if(!rows.has(key))rows.set(key,{...entry,formats:['2v2']});}
-  // Keep common printed/short-name aliases known to the previous catalogue.
+  // Riot publishes separate lists. Format membership must be explicit, not
+  // inferred from the Standard list (Fight or Flight is Standard-only).
+  for(const [format,list] of [['standard',v.bans.standard],['2v2',v.bans.duo]]){
+   for(const entry of list){const key=banMatchKey(entry.name);const row=rows.get(key);
+    if(row){if(!row.formats.includes(format))row.formats.push(format);}
+    else rows.set(key,{...entry,formats:[format]});
+   }
+  }
   const former=new Map(BAN_DATA.map(x=>[banMatchKey(x.name),x]));
-  BAN_DATA.splice(0,BAN_DATA.length,...[...rows.values()].map(row=>({...row,date:row.date||former.get(banMatchKey(row.name))?.date||v.bans.effectiveAt,aliases:former.get(banMatchKey(row.name))?.aliases||row.aliases||[]})));
+  BAN_DATA.splice(0,BAN_DATA.length,...[...rows.values()].map(row=>({...row,
+   date:row.date||former.get(banMatchKey(row.name))?.date||v.bans.effectiveAt,
+   aliases:former.get(banMatchKey(row.name))?.aliases||row.aliases||[]})));
  }
  officialState={status:fromCache?'cached':'current',checkedAt:v.checkedAt||'',banEffective:v.bans.effectiveAt,
   upcoming:effective>todayUtc,rules:v.rules,source:v.source};
@@ -50,21 +57,26 @@ async function refreshOfficialUpdates(force=false){
   const resp=await fetch('./official-updates.json?t='+Date.now(),{cache:'no-store'});
   if(!resp.ok)throw new Error('Update file not published ('+resp.status+')');
   const body=await resp.json();if(!officialFeedValid(body))throw new Error('Update feed failed validation');
+  // A published JSON file can be older than the app's bundled official snapshot.
+  if(body.bans.effectiveAt<'2026-11-23')throw new Error('Published ban list is outdated; GitHub refresh workflow has not updated official-updates.json');
+  if(officialCache&&officialFeedValid(officialCache)&&body.bans.effectiveAt<officialCache.bans.effectiveAt)throw new Error('Published ban list is older than last verified cached list');
   applyOfficialFeed(body,false);localStorage.setItem(OFFICIAL_CACHE_KEY,JSON.stringify(body));
   if(ui.tab==='rules'||ui.tab==='banned'||ui.tab==='overview'||ui.tab==='decks')render();
   if(force)toast('Official source snapshot loaded. Checked '+officialStatusDate()+'.');
  }catch(e){
-  if(officialCache&&officialFeedValid(officialCache))applyOfficialFeed(officialCache,true);
-  else officialState.status='offline';
+  if(officialCache&&officialFeedValid(officialCache)&&officialCache.bans.effectiveAt>='2026-11-23')applyOfficialFeed(officialCache,true);
+  else officialState.status='bundled';
   officialState.error=e.message;
-  if(force){render();toast('Could not verify official updates. Showing a dated snapshot; use the official Rules Hub.',true);}
+  if(force){render();toast('Ban list not refreshed: '+e.message+'. Showing bundled list; check the official Rules Hub.',true);}
  }
 }
 function officialStatusDate(){const x=officialState.checkedAt;return x?new Date(x).toLocaleString():'not verified automatically';}
 function officialFresh(){const t=Date.parse(officialState.checkedAt);return Number.isFinite(t)&&Date.now()-t<3*86400000&&officialState.status==='current';}
 function sourceStatusMarkup(){
  const fresh=officialFresh(),date=officialStatusDate();
- return `<div class="official-sync-status ${fresh?'sync-ok':'sync-warning'}"><span>${fresh?'✓ Verified official snapshot':'⚠ Official feed not verified recently'}</span><small>Last checked: ${escapeHtml(date)} · Ban effective: ${escapeHtml(officialState.banEffective)}${officialState.upcoming?' (upcoming; not enforced yet)':''}</small><button class="btn btn-small btn-ghost" data-action="official-refresh">↻ Check updates</button><a href="${RIFT_HUB}" target="_blank" rel="noopener noreferrer">Official source ↗</a></div>`;
+ const label=fresh?'✓ Recently fetched official snapshot':officialState.status==='bundled'?'⚠ Using bundled official list — automatic feed unavailable': '⚠ Cached official list; refresh status not verified';
+ const detail=officialState.error?' · '+officialState.error:'';
+ return `<div class="official-sync-status ${fresh?'sync-ok':'sync-warning'}"><span>${escapeHtml(label)}</span><small>Feed last checked: ${escapeHtml(date)} · Ban effective: ${escapeHtml(officialState.banEffective)}${officialState.upcoming?' (upcoming; not enforced yet)':''}${escapeHtml(detail)}</small><button class="btn btn-small btn-ghost" data-action="official-refresh">↻ Check updates</button><a href="${RIFT_HUB}" target="_blank" rel="noopener noreferrer">Official source ↗</a></div>`;
 }
 function safeOfficialRuleUrl(which){const u=officialState.rules?.[which];return /^https:\/\/[^\s"<>]+$/.test(u||'')?u:(which==='coreUrl'?OFFICIAL_CORE_RULES:OFFICIAL_TOURNAMENT_RULES);}
 const oldRuleLink=rulesLink;
@@ -251,7 +263,7 @@ document.addEventListener('change',event=>{if(event.target?.id==='counter-mode')
 }});
 // On page startup: load status from the local source snapshot, then check the
 // published same-origin JSON. GitHub Actions refreshes that JSON on a schedule.
-if(officialCache&&officialFeedValid(officialCache))applyOfficialFeed(officialCache,true);
+if(officialCache&&officialFeedValid(officialCache)&&officialCache.bans.effectiveAt>='2026-11-23')applyOfficialFeed(officialCache,true);
 nextHeroArt(false);
 refreshOfficialUpdates().catch(()=>{});
 snapshotNow(false).catch(()=>{});

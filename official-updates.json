@@ -1,8 +1,8 @@
 {
   "source": "https://playriftbound.com/en-us/rules-hub/",
-  "checkedAt": "2026-11-12T04:00:00+00:00",
+  "checkedAt": "2026-11-24T10:57:05+00:00",
   "bans": {
-    "effectiveAt": "2026-09-18",
+    "effectiveAt": "2026-11-23",
     "standard": [
       {
         "name": "Called Shot",
@@ -33,11 +33,11 @@
         "category": "Card"
       },
       {
-        "name": "The Arena\u2019s Greatest",
+        "name": "The Arena’s Greatest",
         "category": "Battlefield"
       },
       {
-        "name": "Aspirant\u2019s Climb",
+        "name": "Aspirant’s Climb",
         "category": "Battlefield"
       },
       {
@@ -49,7 +49,47 @@
         "category": "Battlefield"
       },
       {
-        "name": "Reaver\u2019s Row",
+        "name": "Reaver’s Row",
+        "category": "Battlefield"
+      },
+      {
+        "name": "Riven, Broken Blade",
+        "category": "Card"
+      },
+      {
+        "name": "Zhonya’s Hourglass",
+        "category": "Card"
+      },
+      {
+        "name": "Stellacorn Herder",
+        "category": "Card"
+      },
+      {
+        "name": "Nocturne, Horrifying",
+        "category": "Card"
+      },
+      {
+        "name": "Rhasa the Sunderer",
+        "category": "Card"
+      },
+      {
+        "name": "Brynhir Thundersong",
+        "category": "Card"
+      },
+      {
+        "name": "Dazzling Aurora",
+        "category": "Card"
+      },
+      {
+        "name": "Baited Hook",
+        "category": "Card"
+      },
+      {
+        "name": "Star Spring",
+        "category": "Battlefield"
+      },
+      {
+        "name": "Emperor’s Dais",
         "category": "Battlefield"
       }
     ],
@@ -67,10 +107,6 @@
         "category": "Card"
       },
       {
-        "name": "Fight or Flight",
-        "category": "Card"
-      },
-      {
         "name": "Scrapheap",
         "category": "Card"
       },
@@ -83,11 +119,11 @@
         "category": "Card"
       },
       {
-        "name": "The Arena\u2019s Greatest",
+        "name": "The Arena’s Greatest",
         "category": "Battlefield"
       },
       {
-        "name": "Aspirant\u2019s Climb",
+        "name": "Aspirant’s Climb",
         "category": "Battlefield"
       },
       {
@@ -99,12 +135,52 @@
         "category": "Battlefield"
       },
       {
-        "name": "Reaver\u2019s Row",
+        "name": "Reaver’s Row",
         "category": "Battlefield"
       },
       {
         "name": "Master Yi, Wuju Bladesman",
         "category": "Legend"
+      },
+      {
+        "name": "Riven, Broken Blade",
+        "category": "Card"
+      },
+      {
+        "name": "Zhonya’s Hourglass",
+        "category": "Card"
+      },
+      {
+        "name": "Stellacorn Herder",
+        "category": "Card"
+      },
+      {
+        "name": "Nocturne, Horrifying",
+        "category": "Card"
+      },
+      {
+        "name": "Rhasa the Sunderer",
+        "category": "Card"
+      },
+      {
+        "name": "Brynhir Thundersong",
+        "category": "Card"
+      },
+      {
+        "name": "Dazzling Aurora",
+        "category": "Card"
+      },
+      {
+        "name": "Baited Hook",
+        "category": "Card"
+      },
+      {
+        "name": "Star Spring",
+        "category": "Battlefield"
+      },
+      {
+        "name": "Emperor’s Dais",
+        "category": "Battlefield"
       }
     ]
   },

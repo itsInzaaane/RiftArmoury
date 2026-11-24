@@ -184,6 +184,11 @@ function scanThumbnail(activity){
  const meta=getMeta(unpackKey(activity.key).id);
  return `<span class="scan-thumb" aria-label="${escapeHtml(meta.name)} artwork">${cardArt(meta)}</span>`;
 }
+const MANUAL_SET_STORAGE_KEY='riftvault-manual-set-v131';
+let manualScanSet=localStorage.getItem(MANUAL_SET_STORAGE_KEY)||'OGN';
+function manualScanSetOptions(){const known=[['OGN','Origins'],['SFD','Spiritforged'],['UNL','Unleashed'],['VEN','Vendetta'],['RAD','Radiance'],['OGS','Proving Grounds']];const other=[...new Map(catalog.map(c=>[c.set,c.setName||c.set]).filter(([code])=>code&&/^[A-Z0-9]{2,5}$/.test(code)&&!known.some(([s])=>s===code))).entries()].sort(([a],[b])=>a.localeCompare(b));return [...known,...other].map(([code,name])=>`<option value="${escapeHtml(code)}" ${code===manualScanSet?'selected':''}>${escapeHtml(name)} (${escapeHtml(code)})</option>`).join('');}
+function manualCollectorCode(suffix,set=manualScanSet){const raw=String(suffix||'').toUpperCase().trim();if(!raw)return '';if(/^[A-Z0-9]{2,5}-/.test(raw))return raw;const m=raw.match(/^([RST]?)(\d{1,4})([A-Z]?\*?)$/);if(!m)return '';return `${set}-${m[1]}${m[2].padStart(m[1]?2:3,'0')}${m[3]}`;}
+function manualCodePreview(){const el=document.getElementById('scan-generated-code');if(el)el.textContent=manualCollectorCode(document.getElementById('scan-collector-input')?.value)||'Enter a card number';}
 let scanner = {running:false,starting:false,deckNotice:false,stream:null,worker:null,video:null,loopToken:0,latchedCode:null,lastCandidate:null,stable:0,missed:0,sessionCount:0,finish:'Normal',finishMode:'auto',lastRecognized:'',busy:false,foilTimer:null,foilCode:null,foilSamples:[],pending:null,acceptedHash:null,speed:localStorage.getItem(SCAN_SPEED_KEY)==='steady'?'steady':'fast',ocrCycles:0,cropCanvas:null,hashCanvas:null,flashTimeout:null,lastSuccess:null};
 
 function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -814,7 +819,7 @@ async function loadPrices(force=false){
  return priceFetchInFlight;
 }
 function wishlistRows(){const group=new Map();for(const deck of state.decks)for(const e of deck.entries){const k=normalizeName(e.name);if(!k)continue;let row=group.get(k);if(!row){row={name:e.name,required:0,decks:new Set(),code:e.code};group.set(k,row);}const n=Math.max(0,e.required-entryAssigned(deck,e));if(n){row.required+=n;row.decks.add(deck.name);}}return [...group.values()].map(r=>({...r,bulk:stockForName(r.name,true),missing:Math.max(0,r.required-stockForName(r.name,true))})).filter(r=>r.missing>0).sort((a,b)=>b.missing-a.missing||a.name.localeCompare(b.name));}
-function checkDeck(deck){const issues=[],counts=Object.fromEntries(SECTIONS.map(s=>[s,deck.entries.filter(e=>e.section===s).reduce((a,b)=>a+b.required,0)]));if(counts.Legend!==1)issues.push(`Legend: ${counts.Legend}; expected 1`);if(counts.Champion!==1)issues.push(`Chosen Champion: ${counts.Champion}; expected 1`);if(counts.MainDeck+counts.Champion<40)issues.push(`Main Deck + chosen Champion: ${counts.MainDeck+counts.Champion}; minimum 40`);if(counts.Runes!==12)issues.push(`Runes: ${counts.Runes}; expected 12`);if(counts.Battlefields!==3)issues.push(`Battlefields: ${counts.Battlefields}; expected 3`);if(counts.Sideboard>10)issues.push(`Sideboard: ${counts.Sideboard}; maximum 10`);const b=deck.entries.filter(e=>e.section==='Battlefields');if(new Set(b.map(e=>normalizeName(e.name))).size!==b.length||b.some(e=>e.required!==1))issues.push('Battlefield names must be different');const cardCounts=new Map();for(const e of deck.entries.filter(e=>['MainDeck','Champion','Sideboard'].includes(e.section))){const k=normalizeName(e.name);cardCounts.set(k,(cardCounts.get(k)||0)+e.required);}for(const [k,n] of cardCounts)if(n>3&&k!=='spiderling')issues.push(`More than 3 copies of ${k} across main/champion/sideboard`);for(const e of deck.entries)if(banStatus(requirementName(e),'standard'))issues.push(`${requirementName(e)} is banned in Standard Constructed (official list September 2026)`);return {issues,pass:issues.length===0};}
+function checkDeck(deck){const issues=[],counts=Object.fromEntries(SECTIONS.map(s=>[s,deck.entries.filter(e=>e.section===s).reduce((a,b)=>a+b.required,0)]));if(counts.Legend!==1)issues.push(`Legend: ${counts.Legend}; expected 1`);if(counts.Champion!==1)issues.push(`Chosen Champion: ${counts.Champion}; expected 1`);if(counts.MainDeck+counts.Champion<40)issues.push(`Main Deck + chosen Champion: ${counts.MainDeck+counts.Champion}; minimum 40`);if(counts.Runes!==12)issues.push(`Runes: ${counts.Runes}; expected 12`);if(counts.Battlefields!==3)issues.push(`Battlefields: ${counts.Battlefields}; expected 3`);if(counts.Sideboard>10)issues.push(`Sideboard: ${counts.Sideboard}; maximum 10`);const b=deck.entries.filter(e=>e.section==='Battlefields');if(new Set(b.map(e=>normalizeName(e.name))).size!==b.length||b.some(e=>e.required!==1))issues.push('Battlefield names must be different');const cardCounts=new Map();for(const e of deck.entries.filter(e=>['MainDeck','Champion','Sideboard'].includes(e.section))){const k=normalizeName(e.name);cardCounts.set(k,(cardCounts.get(k)||0)+e.required);}for(const [k,n] of cardCounts)if(n>3&&k!=='spiderling')issues.push(`More than 3 copies of ${k} across main/champion/sideboard`);for(const e of deck.entries)if(banStatus(requirementName(e),'standard'))issues.push(`${requirementName(e)} is banned in Standard Constructed (current official ban list)`);return {issues,pass:issues.length===0};}
 
 function getNamesForSearch(){const grouped=new Map();for(const original of catalog){const p=getMeta(original.id);let k=normalizeName(p.name);let group=grouped.get(k);if(!group){group={name:p.name,defaultPrint:p,printings:[]};grouped.set(k,group);}group.printings.push(p);if(group.defaultPrint.isVariant && !p.isVariant)group.defaultPrint=p;}
 for(const {card} of ownedEntries()){const k=normalizeName(card.name);if(!grouped.has(k))grouped.set(k,{name:card.name,defaultPrint:card,printings:[card]});}return [...grouped.values()];}
@@ -1177,7 +1182,7 @@ function commitScan(card,finish,fp,source='manual',detectedCode='',quantity=1){
  save();scanner.sessionCount+=quantity;scanner.latchedCode=detectedCode||scanner.pending?.detectedCode||normalizedCode(card.code);scanner.acceptedHash=fp||scanner.acceptedHash;
  scanner.pending=null;scanner.foilCode=null;scanner.foilSamples=[];
  if(source==='typed'){
-  const codeInput=document.getElementById('scan-collector-input');if(codeInput)codeInput.value='';
+  const codeInput=document.getElementById('scan-collector-input');if(codeInput)codeInput.value='';manualCodePreview();
   const qtyInput=document.getElementById('scan-manual-qty');if(qtyInput)qtyInput.value='1';
  }
  beep();showScanSuccess(card,finish,quantity);updateScanUI();setScanStatus(`✓ ${quantity} ${quantity===1?'copy':'copies'} of ${card.name} added to Bulk.`,'● Card captured');
@@ -1299,9 +1304,9 @@ document.addEventListener('click',async event=>{const nav=event.target.closest('
   const quantity=Number(rawQuantity);
   if(!rawQuantity||!Number.isInteger(quantity)||quantity<1||quantity>999){toast('How many copies? Enter a whole number from 1 to 999.',true);break;}
   if(scanner.pending){toast('Finish or skip the current card confirmation first.',true);break;}
-  const typed=String(document.getElementById('scan-collector-input')?.value||'').trim();
-  if(!typed){toast('Enter a collector code first.',true);break;}
-  const card=codeIndex.get(normalizedCode(typed))||matchOCR(typed);
+  const typed=manualCollectorCode(document.getElementById('scan-collector-input')?.value);
+  if(!typed){toast('Select a set and enter a valid card number (e.g. 103 or R03a).',true);break;}
+  const card=codeIndex.get(normalizedCode(typed));
   if(!card){toast('Code not found. Check the printed set and letter, or refresh the card catalogue.',true);break;}
   const finish=knownPrintingFinish(card);
   if(finish)commitScan(card,finish,null,'typed',normalizedCode(card.code),quantity);
@@ -1341,8 +1346,8 @@ document.addEventListener('click',async event=>{const nav=event.target.closest('
  case'correct-scan-finish':{const a=state.activity.find(a=>a.id===button.dataset.activity&&a.kind==='scan');if(a?.key&&knownPrintingFinish(getMeta(unpackKey(a.key).id))){toast('This printing has a fixed finish: '+knownPrintingFinish(getMeta(unpackKey(a.key).id))+'.',true);break;}const qty=a?.qty||1;if(!a||!a.key||bulkQty(a.key)<qty){toast('The full scanned batch must be in Bulk for correction.',true);break;}const old=a.key,info=unpackKey(old),newFinish=info.finish==='Foil'?'Normal':'Foil',next=keyFor(info.id,newFinish);state.stock[old]=ownedQty(old)-qty;if(state.stock[old]===0)delete state.stock[old];state.stock[next]=ownedQty(next)+qty;a.key=next;a.message=`Scanned ${qty} × ${getMeta(info.id).name} (${getMeta(info.id).code}) • ${newFinish==='Foil'?'Foil':'Non-foil'} [corrected]`;save();if(ui.tab==='scan')updateScanUI();else render();toast('Corrected '+qty+' '+(qty===1?'copy':'copies')+' to '+(newFinish==='Foil'?'Foil':'Non-foil')+'.');break;}
  case'undo-scan':{const i=state.activity.findIndex(a=>a.id===button.dataset.activity&&a.kind==='scan');if(i<0)break;const a=state.activity[i];const qty=a.qty||1;if(!a.key||bulkQty(a.key)<qty){toast('Cannot undo: some copies from this batch are no longer in Bulk.',true);break;}state.stock[a.key]=ownedQty(a.key)-qty;if(!state.stock[a.key])delete state.stock[a.key];state.activity.splice(i,1);recentVisitIds.delete(a.id);logActivity('Undid '+qty+' × '+getMeta(unpackKey(a.key).id).name,null,'undo');save();if(ui.tab==='scan')updateScanUI();else render();toast('Undid '+qty+' '+(qty===1?'copy':'copies')+'.');break;}
  }});
-document.addEventListener('input',event=>{const t=event.target;if(t.id==='card-search'||t.id==='inventory-search'){if(t.id==='card-search')ui.query=t.value;else ui.inventoryQuery=t.value;const id=t.id,position=t.selectionStart;render();const e=document.getElementById(id);if(e){e.focus();try{e.setSelectionRange(position,position);}catch(_){}}}else if(t.id==='import-deck-text'){ui.importText=t.value;const b=document.querySelector('[data-action="save-import"]');if(b){const p=parseDeckText(ui.importText);b.disabled=!p.entries.length;b.textContent=(ui.modal?.into?'Replace requirements':'Create deck')+' · '+p.total+' cards';}}else if(t.id==='import-deck-name')ui.importName=t.value;else if(t.id==='add-card-name')ui.addCardQuery=t.value;else if(t.id==='add-card-qty')ui.addCardQuantity=Number(t.value);});
-document.addEventListener('change',async event=>{const t=event.target;if(t.id==='set-filter'){ui.setFilter=t.value;render();}else if(t.id==='owned-only'){ui.ownedOnly=t.checked;render();}else if(t.id==='deck-file'){const file=t.files?.[0];if(file){if(file.size>200000){toast('Decklist file is too large.',true);return;}ui.importText=await file.text();ui.importName=(file.name.replace(/\.txt$/i,'').trim()||ui.importName);renderModal();toast('TXT file loaded. Review the requirements, then create the deck.');}}else if(t.id==='restore-input'){await restoreJson(t.files?.[0]);t.value='';}else if(t.id==='add-card-section')ui.addCardSection=t.value;else if(t.id==='scan-finish')scanner.finish=t.value;else if(t.id==='scan-speed'){scanner.speed=t.value==='steady'?'steady':'fast';localStorage.setItem(SCAN_SPEED_KEY,scanner.speed);toast(scanner.speed==='fast'?'Fast recognition selected; please review scanned codes.':'Steady recognition selected; codes require two matching reads.');}else if(t.id==='scan-finish-mode'){scanner.finishMode=t.value==='manual'?'manual':'auto';const row=document.getElementById('scan-manual-finish');if(row)row.style.display=scanner.finishMode==='manual'?'':'none';scanner.foilSamples=[];scanner.foilCode=null;toast(scanner.finishMode==='auto'?'Automatic foil assessment enabled; uncertain finishes will need confirmation.':'Manual finish mode enabled.');}});
+document.addEventListener('input',event=>{const t=event.target;if(t.id==='scan-collector-input'){manualCodePreview();}else if(t.id==='card-search'||t.id==='inventory-search'){if(t.id==='card-search')ui.query=t.value;else ui.inventoryQuery=t.value;const id=t.id,position=t.selectionStart;render();const e=document.getElementById(id);if(e){e.focus();try{e.setSelectionRange(position,position);}catch(_){}}}else if(t.id==='import-deck-text'){ui.importText=t.value;const b=document.querySelector('[data-action="save-import"]');if(b){const p=parseDeckText(ui.importText);b.disabled=!p.entries.length;b.textContent=(ui.modal?.into?'Replace requirements':'Create deck')+' · '+p.total+' cards';}}else if(t.id==='import-deck-name')ui.importName=t.value;else if(t.id==='add-card-name')ui.addCardQuery=t.value;else if(t.id==='add-card-qty')ui.addCardQuantity=Number(t.value);});
+document.addEventListener('change',async event=>{const t=event.target;if(t.id==='scan-manual-set'){manualScanSet=t.value;localStorage.setItem(MANUAL_SET_STORAGE_KEY,manualScanSet);manualCodePreview();}else if(t.id==='set-filter'){ui.setFilter=t.value;render();}else if(t.id==='owned-only'){ui.ownedOnly=t.checked;render();}else if(t.id==='deck-file'){const file=t.files?.[0];if(file){if(file.size>200000){toast('Decklist file is too large.',true);return;}ui.importText=await file.text();ui.importName=(file.name.replace(/\.txt$/i,'').trim()||ui.importName);renderModal();toast('TXT file loaded. Review the requirements, then create the deck.');}}else if(t.id==='restore-input'){await restoreJson(t.files?.[0]);t.value='';}else if(t.id==='add-card-section')ui.addCardSection=t.value;else if(t.id==='scan-finish')scanner.finish=t.value;else if(t.id==='scan-speed'){scanner.speed=t.value==='steady'?'steady':'fast';localStorage.setItem(SCAN_SPEED_KEY,scanner.speed);toast(scanner.speed==='fast'?'Fast recognition selected; please review scanned codes.':'Steady recognition selected; codes require two matching reads.');}else if(t.id==='scan-finish-mode'){scanner.finishMode=t.value==='manual'?'manual':'auto';const row=document.getElementById('scan-manual-finish');if(row)row.style.display=scanner.finishMode==='manual'?'':'none';scanner.foilSamples=[];scanner.foilCode=null;toast(scanner.finishMode==='auto'?'Automatic foil assessment enabled; uncertain finishes will need confirmation.':'Manual finish mode enabled.');}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ui.modal)closeModal();});
 window.addEventListener('pagehide',()=>{if(scanner.stream)scanner.stream.getTracks().forEach(t=>t.stop());});
 
@@ -1486,7 +1491,7 @@ exportExcel=function(){const curr='USD',source='TCGplayer market via RiftHunt (d
 // Print-code fallback for cameras that cannot focus on miniature collector text.
 const scanViewBeforeCodeEntry=renderScan;
 renderScan=function(){return scanViewBeforeCodeEntry().replace('<div id="scan-review"',
- `<div class="panel manual-code-panel mt12 mb12"><div class="eyebrow">MANUAL CARD ENTRY</div><p class="muted small">Enter a collector code to add several identical copies in one step. Smart finish rules still apply.</p><div class="manual-entry-fields"><label class="form-field"><span>Collector code</span><input id="scan-collector-input" class="input" autocomplete="off" autocapitalize="characters" placeholder="OGN-042a / SFD-R02a" aria-label="Printed collector code"></label><label class="form-field"><span>How many copies?</span><input id="scan-manual-qty" class="input" type="number" inputmode="numeric" min="1" max="999" step="1" value="1" required aria-label="How many copies"></label><button class="btn btn-primary" data-action="scan-code-lookup">Identify &amp; add to Bulk</button></div><p class="muted micro mt12">Enter 1–999 copies. Each entry is saved as one batch; Undo removes the full batch if all copies are still in Bulk.</p></div><div id="scan-review"`);
+ `<div class="panel manual-code-panel mt12 mb12"><div class="eyebrow">MANUAL CARD ENTRY</div><p class="muted small">Choose a set, enter only the card number, then add identical copies in one step. Smart finish rules still apply.</p><div class="manual-entry-fields"><label class="form-field"><span>Set</span><select id="scan-manual-set" class="select" aria-label="Select card set">${manualScanSetOptions()}</select></label><label class="form-field"><span>Card number</span><input id="scan-collector-input" class="input" autocomplete="off" autocapitalize="characters" placeholder="103 / 042a / R03a / 301*" aria-label="Printed collector number"></label><label class="form-field"><span>How many copies?</span><input id="scan-manual-qty" class="input" type="number" inputmode="numeric" min="1" max="999" step="1" value="1" required aria-label="How many copies"></label><button class="btn btn-primary" data-action="scan-code-lookup">Identify &amp; add to Bulk</button></div><p class="muted micro mt12">Full code: <strong id="scan-generated-code">Enter a card number</strong> · Enter 1–999 copies. Each entry is saved as one batch; Undo removes the full batch if all copies are still in Bulk.</p></div><div id="scan-review"`);
 };
 function migrateAltArtNonfoilRecords(){
  const changes=[];
@@ -1836,6 +1841,77 @@ function modalImagePreview(){
  const artwork=imageUrl?`<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(p.name)} ${escapeHtml(p.code)} full artwork" draggable="false" onerror="this.style.display='none';this.parentElement.classList.add('artwork-unavailable')" />`:'<p class="muted">No high-resolution artwork available for this printing.</p>';
  return `<div class="art-preview-backdrop" data-action="art-preview-close"><section class="art-preview-dialog" role="dialog" aria-modal="true" aria-label="Card artwork for ${escapeHtml(p.name)}" tabindex="-1"><div class="art-preview-header"><div><strong>${escapeHtml(p.name)}</strong><span>${escapeHtml(p.code||p.id)} · ${escapeHtml(p.setName||p.set||'')}${finish?' · '+escapeHtml(finish):''}</span></div><div class="row"><button type="button" class="btn btn-small btn-ghost" data-action="art-verify-open" data-id="${escapeHtml(p.id)}">Verify artwork</button><button type="button" class="btn btn-small btn-ghost" data-action="art-preview-zoom" aria-label="Zoom artwork">Zoom ＋</button><button type="button" class="btn btn-icon btn-ghost" data-action="art-preview-close" aria-label="Close artwork preview">×</button></div></div><div class="art-preview-scroll" id="art-preview-scroll">${artwork}</div><div class="art-preview-footer">${escapeHtml(artworkVerificationStatus(p))} · Pinch to zoom or use Zoom + to enlarge card text.</div></section></div>`;
 }
+// v1.31: Artwork choices for a Rune are grouped by the Rune NAME, not by
+// collector prefix. OGN-089a and VEN-R03a may both be Mind Rune art, but
+// selecting their IMAGE must never change the collector ID of the owned copy.
+function linkedRuneArtworkChoices(card){
+ if(!card||(normalizeName(card.type)!=='rune'&&!isBasicRuneName(card.name)))return [];
+ const name=normalizeName(card.name), unique=new Map();
+ for(const item of [card,...allPrintings.values(),...Object.values(state.printings||{})]){
+  if(!item||(normalizeName(item.type)!=='rune'&&!isBasicRuneName(item.name))||normalizeName(item.name)!==name)continue;
+  const full=normalizedCode(item.code||item.publicCode||'');
+  if(!full)continue;
+  const old=unique.get(full);
+  // Prefer catalogue entries that carry an exact provider printing ID.
+  if(!old||(!old.printingId&&item.printingId))unique.set(full,item);
+ }
+ const current=normalizedCode(card.code||card.publicCode||'');
+ return [card,...[...unique.entries()].filter(([code])=>code!==current).map(([,p])=>p).sort((a,b)=>{
+  const aSame=a.set===card.set?0:1,bSame=b.set===card.set?0:1;
+  return aSame-bSame||Number(isAlternateRunePrinting(b))-Number(isAlternateRunePrinting(a))||String(a.code).localeCompare(String(b.code));
+ })];
+}
+// Load only the linked Rune images for the open verification panel, with
+// controlled concurrency. Printings outside the first 12 can be checked by tap.
+function primeLinkedRuneArtwork(card){
+ const choices=linkedRuneArtworkChoices(card).filter(p=>isAlternateRunePrinting(p)&&!manualArtFor(p)&&!getVerifiedRuneArt(p));
+ const candidates=choices.filter(p=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(p.printingId||''))).slice(0,12);
+ let next=0;
+ async function worker(){while(next<candidates.length){const p=candidates[next++];await verifyAlternateRuneArtwork(p);}}
+ for(let i=0;i<Math.min(3,candidates.length);i++)void worker();
+}
+function exactSuggestedRuneArtwork(card){
+ // A recommendation is made only for the printing itself. Never recommend
+ // an ordinary Rune image as a supposed alternate art.
+ if(isAlternateRunePrinting(card)){
+  const art=getVerifiedRuneArt(card);return art?.large||art?.normal||'';
+ }
+ return card?.imageUrl||'';
+}
+function linkedRuneImage(p){
+ if(isAlternateRunePrinting(p)){
+  const manual=manualArtFor(p),art=getVerifiedRuneArt(p);
+  return manual?.src||art?.normal||art?.large||'';
+ }
+ return runeArtworkUrl(p);
+}
+function renderRuneArtworkChoices(card){
+ const choices=linkedRuneArtworkChoices(card);
+ if(!choices.length)return '';
+ const exact=choices[0],exactCode=escapeHtml(exact.code||exact.id);
+ const recommended=exactSuggestedRuneArtwork(exact);
+ const current=ui.artCandidate;
+ const recommendedCard=recommended?`<img src="${escapeHtml(recommended)}" alt="Recommended ${exactCode} artwork" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><span hidden class="rv-rune-art-choice-empty">Image unavailable — retry verification</span>`:`<span class="rv-rune-art-choice-empty">Exact printing artwork not verified yet</span>`;
+ const exactTitle=isAlternateRunePrinting(exact)?'Verified alternate-art printing':'Catalogue artwork for this printing';
+ const compare= current?.kind==='linked'&&current.src&&normalizedCode(current.linkedCode)!==normalizedCode(exact.code)?
+  `<div class="rv-rune-art-browser-heading"><h3>Compare artwork side by side</h3><span class="muted micro">Preview only · not yet saved</span></div><div class="rv-rune-art-compare"><figure><div class="rv-rune-art-compare-photo">${recommendedCard}</div><figcaption><strong>Recommended</strong><small>${exactCode} · exact printing</small></figcaption></figure><figure><div class="rv-rune-art-compare-photo"><img src="${escapeHtml(current.src)}" alt="Selected ${escapeHtml(current.linkedCode)} linked Rune artwork" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><span hidden class="rv-rune-art-choice-empty">Image unavailable — choose another</span></div><figcaption><strong>Selected alternative</strong><small>${escapeHtml(current.linkedCode)}</small></figcaption></figure></div><p class="muted micro">Compare the images with your card before confirming. If you save the selected artwork, it changes only the displayed image — not your card's printing or ownership.</p>`:'';
+ return `<section class="rv-rune-art-browser" aria-label="Linked Rune artwork choices">
+  <div class="rv-rune-art-browser-heading"><h3>Recommended artwork</h3><span class="rv-rune-art-recommend-label">Exact printing match</span></div>
+  <p class="muted small">For <strong>${exactCode}</strong>: ${escapeHtml(exactTitle)}. The artwork recommendation is based on this printing's exact code, not just its Rune name.</p>
+  <button type="button" class="rv-rune-art-recommend" data-action="art-linked-select" data-id="${escapeHtml(exact.id)}" aria-label="Preview recommended artwork ${exactCode}">
+   <span class="rv-rune-art-recommend-image">${recommendedCard}</span>
+   <span><strong>${exactCode}</strong><small>${escapeHtml(exact.setName||exact.set||'')} · ${isAlternateRunePrinting(exact)?'Alternate':'Regular'} Rune</small><em>${recommended?'Recommended — tap the artwork to compare':'Tap to retry lookup'}</em></span>
+  </button>
+  <div class="rv-rune-art-browser-heading"><h3>Other ${escapeHtml(card.name)} artwork</h3><span class="muted micro">${Math.max(0,choices.length-1)} linked printings</span></div>
+  <p class="muted small">All known artwork printings for this Rune type in your loaded catalogue. Tap a picture to preview it. Selecting artwork from another set changes the displayed picture only — never your card code, foil finish, stock or deck assignments.</p>
+  ${choices.length===1?'<p class="muted small">No other printings currently available in your catalogue.</p>':`<div class="rv-rune-art-options">${choices.slice(1).map(other=>{
+    const url=linkedRuneImage(other),code=escapeHtml(other.code||other.id),kind=isAlternateRunePrinting(other)?'Alternate art':'Regular art';
+    const active=current?.kind==='linked'&&normalizedCode(current.linkedCode)===normalizedCode(other.code);
+    return `<button type="button" class="rv-rune-art-option${active?' selected':''}" data-action="art-linked-select" data-id="${escapeHtml(other.id)}" title="Preview ${code} ${escapeHtml(kind)}" aria-label="Preview ${escapeHtml(other.name)} ${code} ${escapeHtml(kind)}"><span class="rv-rune-art-option-photo">${url?`<img src="${escapeHtml(url)}" alt="${code} ${escapeHtml(kind)} artwork" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><span hidden class="rv-rune-art-choice-empty">Image unavailable<br>Tap to check</span>`:'<span class="rv-rune-art-choice-empty">Art not verified<br>Tap to check</span>'}</span><strong>${code}</strong><small>${escapeHtml(other.setName||other.set||'')} · ${escapeHtml(kind)}</small><small class="rv-rune-art-option-hint">${active?'Selected for comparison':'Tap to compare'}</small></button>`;
+   }).join('')}</div>`}
+  ${compare}
+ </section>`;
+}
 // Artwork verification screen: retried provider images are labelled separately
 // from user choices. A file is resized locally to limit backup size; no upload.
 function modalArtworkVerification(){
@@ -1843,12 +1919,13 @@ function modalArtworkVerification(){
  const candidate=ui.artCandidate||null;
  const sourceUrl=isAlternateRunePrinting(p)?(source?.large||source?.normal||''):(p?.imageUrl||'');
  const showing=candidate?.src||manual?.src||sourceUrl;
- const label=candidate?.src?'Selected candidate — not yet saved':manual?'User verified':sourceUrl?artworkVerificationStatus(p):'Artwork unverified';
+ const label=candidate?.src?(candidate.kind==='linked'?'Selected linked Rune artwork — not yet saved':'Selected candidate — not yet saved'):manual?'User verified':sourceUrl?artworkVerificationStatus(p):'Artwork unverified';
  const currentCode=escapeHtml(p.code||p.id);
  const image=showing?`<img src="${escapeHtml(showing)}" alt="Candidate artwork for ${escapeHtml(p.name)} ${currentCode}" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('artwork-unavailable')"/>`:'<span class="rv-artwork-empty">Artwork unavailable. Retry or choose your own image.</span>';
  return modalShell('Verify artwork',`${p.name} · ${p.code} · ${printingLabel(p)}`,
  `<div class="rv-artwork-verify"><div class="rv-artwork-verify-status"><strong>${escapeHtml(label)}</strong><span>Code: ${currentCode} · ${escapeHtml(p.set||'')}</span></div><div class="rv-artwork-candidate">${image}</div><p class="muted small">Compare the picture to your physical card. Source-verified means the provider's printing data matched; User verified means you selected and confirmed the image yourself.</p>
  <div class="rv-artwork-actions"><button class="btn btn-primary" data-action="art-source-retry" data-id="${escapeHtml(p.id)}" ${isAlternateRunePrinting(p)?'':'disabled'}>↻ Retry source lookup</button>${(candidate?.src||sourceUrl)?`<button class="btn btn-green-outline" data-action="art-manual-confirm" data-id="${escapeHtml(p.id)}">✓ Yes, this is my artwork</button>`:''}</div>
+ ${renderRuneArtworkChoices(p)}
  <div class="rv-artwork-select"><label class="form-field"><span>Choose a photo or card image on this device (JPEG, PNG or WebP)</span><input type="file" id="rv-artwork-file" accept="image/jpeg,image/png,image/webp" /></label><p class="muted micro">Images are resized on this device and stored inside your local collection backup. Do not use a very large image.</p><label class="form-field"><span>Or enter a direct HTTPS image URL</span><input id="rv-artwork-url" class="input" type="url" placeholder="https://.../exact-rune-art.jpg" maxlength="1800" value="${candidate?.kind==='url'?escapeHtml(candidate.src):''}" /></label><button class="btn btn-ghost" data-action="art-url-preview">Preview image URL</button></div>
  ${manual?'<button class="btn btn-danger btn-small" data-action="art-manual-remove">Remove my artwork choice</button>':''}
  </div>`, '<button class="btn btn-ghost" data-action="art-verify-close">Done</button>',true);
@@ -1857,6 +1934,7 @@ function openArtworkVerification(id){
  const p=getMeta(id);if(!p?.id)return;
  ui.artVerifyReturn=ui.modal?{...ui.modal}:null;ui.artCandidate=null;
  ui.modal={type:'artwork-verification',id:p.id};renderModal();
+ if(isBasicRuneName(p.name)||normalizeName(p.type)==='rune')primeLinkedRuneArtwork(p);
 }
 function closeArtworkVerification(){ui.artCandidate=null;ui.modal=ui.artVerifyReturn||null;ui.artVerifyReturn=null;renderModal();}
 function confirmArtworkOverride(p,src){
@@ -1887,12 +1965,30 @@ async function fileForArtwork(file){
 document.addEventListener('click',event=>{
  const btn=event.target.closest('[data-action]');if(!btn)return;
  const action=btn.dataset.action;
- if(!['art-verify-open','art-verify-close','art-source-retry','art-url-preview','art-manual-confirm','art-manual-remove'].includes(action))return;
+ if(!['art-verify-open','art-verify-close','art-source-retry','art-url-preview','art-manual-confirm','art-manual-remove','art-linked-select'].includes(action))return;
  event.preventDefault();event.stopImmediatePropagation();
  if(action==='art-verify-open'){openArtworkVerification(btn.dataset.id);return;}
  if(action==='art-verify-close'){closeArtworkVerification();return;}
  if(ui.modal?.type!=='artwork-verification')return;
  const p=getMeta(ui.modal.id);
+ if(action==='art-linked-select'){
+   const choice=getMeta(btn.dataset.id);
+   // Validate this option belongs to the SAME Rune type; never select unrelated art.
+   if(!linkedRuneArtworkChoices(p).some(item=>normalizedCode(item.code)===normalizedCode(choice.code))){toast('This artwork is not linked to this Rune.',true);return;}
+   const exact=normalizedCode(p.code)===normalizedCode(choice.code);
+   const url=exact?exactSuggestedRuneArtwork(choice):linkedRuneImage(choice);
+   if(url){ui.artCandidate={kind:'linked',src:url,linkedCode:choice.code};renderModal();return;}
+   if(isAlternateRunePrinting(choice)){
+     btn.disabled=true;btn.textContent='Checking artwork…';
+     void verifyAlternateRuneArtwork(choice).then(verified=>{
+       if(ui.modal?.type!=='artwork-verification'||normalizedCode(ui.modal.id)!==normalizedCode(p.id))return;
+       const image=exact?exactSuggestedRuneArtwork(choice):linkedRuneImage(choice);
+       if(image){ui.artCandidate={kind:'linked',src:image,linkedCode:choice.code};renderModal();toast('Image loaded. Compare it with your physical card before confirming.');}
+       else{renderModal();toast('No verified image for '+choice.code+'. Try another artwork or upload yours.',true);}
+     });return;
+   }
+   toast('This printing has no artwork URL in the current catalogue.',true);return;
+ }
  if(action==='art-source-retry'){
    if(!isAlternateRunePrinting(p)){toast('Source retry currently supports alternate-art Runes.',true);return;}
    const key=verifiedRuneArtKey(p),old=getVerifiedRuneArt(p);verifiedRuneArt.delete(key);
@@ -1995,24 +2091,35 @@ setLogoLabel=function(set,name){
  return `<div class="set-emblem set-image-emblem set-emblem-${escapeHtml(set.toLowerCase())}"><img class="set-logo-asset" src="${logo}" alt="${escapeHtml(name||set)} set logo" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"/><span class="set-logo-fallback" hidden>${escapeHtml(name||set)}</span></div>`;
 };
 
-// Official Rules Hub: 12 banned entries for Standard, plus one 2v2 Legend.
-// Snapshot last checked 11 November 2026, official ban update effective 18 September 2026.
-const BAN_LIST_VERIFIED='11 Nov 2026';
-const BAN_LIST_EFFECTIVE='18 Sep 2026';
+// Snapshot verified against Riot's Rules Hub on 24 November 2026.
+// The formats are independent: Fight or Flight is Standard-only, while
+// Master Yi, Wuju Bladesman is 2v2-only. Never merge Standard into 2v2.
+const BAN_LIST_VERIFIED='24 Nov 2026';
+const BAN_LIST_EFFECTIVE='23 Nov 2026';
 const BAN_DATA=[
  {name:'Called Shot',category:'Card',date:'31 Mar 2026'},
  {name:'Draven, Vanquisher',category:'Card',date:'31 Mar 2026'},
- {name:'Fight or Flight',category:'Card',date:'31 Mar 2026'},
+ {name:'Fight or Flight',category:'Card',date:'31 Mar 2026',formats:['standard']},
  {name:'Scrapheap',category:'Card',date:'31 Mar 2026'},
- {name:'The Dreaming Tree',category:'Battlefield',date:'31 Mar 2026',aliases:['Dreaming Tree']},
+ {name:'Dreaming Tree',category:'Battlefield',date:'31 Mar 2026',aliases:['The Dreaming Tree']},
  {name:'Obelisk of Power',category:'Battlefield',date:'31 Mar 2026'},
- {name:'Reaver\'s Row',category:'Battlefield',date:'31 Mar 2026'},
+ {name:'Reaver’s Row',category:'Battlefield',date:'31 Mar 2026'},
  {name:'Stealthy Pursuer',category:'Card',date:'24 Jul 2026'},
- {name:'The Arena\'s Greatest',category:'Battlefield',date:'24 Jul 2026'},
- {name:'Aspirant\'s Climb',category:'Battlefield',date:'24 Jul 2026'},
+ {name:'The Arena’s Greatest',category:'Battlefield',date:'24 Jul 2026'},
+ {name:'Aspirant’s Climb',category:'Battlefield',date:'24 Jul 2026'},
  {name:'Ekko, Recurrent',category:'Card',date:'18 Sep 2026'},
  {name:'Stacked Deck',category:'Card',date:'18 Sep 2026'},
  {name:'Master Yi, Wuju Bladesman',category:'Legend',date:'24 Jul 2026',formats:['2v2'],aliases:['Wuju Bladesman']},
+ {name:'Riven, Broken Blade',category:'Card',date:'23 Nov 2026'},
+ {name:'Zhonya’s Hourglass',category:'Card',date:'23 Nov 2026'},
+ {name:'Stellacorn Herder',category:'Card',date:'23 Nov 2026'},
+ {name:'Nocturne, Horrifying',category:'Card',date:'23 Nov 2026'},
+ {name:'Rhasa the Sunderer',category:'Card',date:'23 Nov 2026'},
+ {name:'Brynhir Thundersong',category:'Card',date:'23 Nov 2026'},
+ {name:'Dazzling Aurora',category:'Card',date:'23 Nov 2026'},
+ {name:'Baited Hook',category:'Card',date:'23 Nov 2026'},
+ {name:'Star Spring',category:'Battlefield',date:'23 Nov 2026'},
+ {name:'Emperor’s Dais',category:'Battlefield',date:'23 Nov 2026'},
 ];
 function banMatchKey(v){
  return normalizeName(v).replace(/[^a-z0-9]+/g,' ').replace(/^the /,'').replace(/\s+/g,' ').trim();
@@ -2027,14 +2134,15 @@ function banStatus(name,format='standard'){
 }
 function banBadge(name){
  const standard=banStatus(name,'standard'),duo=banStatus(name,'2v2');
- if(standard)return '<span class="ban-badge" title="Banned in Standard and 2v2 Constructed">⊘ BANNED · Standard & 2v2</span>';
+ if(standard&&duo)return '<span class="ban-badge" title="Banned in Standard and 2v2 Constructed">⊘ BANNED · Standard & 2v2</span>';
+ if(standard)return '<span class="ban-badge" title="Banned in Standard Constructed only">⊘ BANNED · Standard only</span>';
  if(duo)return '<span class="ban-badge ban-badge-duo" title="Banned in 2v2 Constructed only">⊘ BANNED · 2v2 only</span>';
  return '';
 }
 function banDetailNotice(name){
  const standard=banStatus(name,'standard'),duo=banStatus(name,'2v2');
  if(!standard&&!duo)return '';
- return `<div class="ban-detail-alert">${banBadge(name)}<span>${standard?'Not legal in sanctioned Standard or 2v2 Constructed.':'Not legal in sanctioned 2v2 Constructed; still legal in Standard.'} <a href="${OFFICIAL_RULES_HUB}" target="_blank" rel="noopener noreferrer">Official rules ↗</a></span></div>`;
+ return `<div class="ban-detail-alert">${banBadge(name)}<span>${standard&&duo?'Not legal in sanctioned Standard or 2v2 Constructed.':standard?'Not legal in sanctioned Standard Constructed; allowed in 2v2.':'Not legal in sanctioned 2v2 Constructed; still legal in Standard.'} <a href="${OFFICIAL_RULES_HUB}" target="_blank" rel="noopener noreferrer">Official rules ↗</a></span></div>`;
 }
 ui.banFormat='standard';ui.banQuery='';
 NAV.push({id:'banned',icon:'⊘',name:'Banned cards'});
@@ -2052,7 +2160,7 @@ function bannedListMarkup(){
  }).join('');
 }
 function renderBanned(){
- const total=ui.banFormat==='standard'?12:13;
+ const total=BAN_DATA.filter(row=>(row.formats||['standard','2v2']).includes(ui.banFormat)).length;
  return `<div class="banned-view"><div class="rules-hero ban-hero"><div class="eyebrow">RULES / FORMAT LEGALITY</div><h2>Banned Cards</h2><p>Search the current banned cards and battlefields. These restrictions apply to sanctioned Constructed play, not to keeping the cards in your collection.</p><div class="rules-release">Official ban update: ${BAN_LIST_EFFECTIVE} · Last checked ${BAN_LIST_VERIFIED}</div></div>
  <div class="row wrap banned-link-row"><a class="btn btn-small btn-ghost" href="${OFFICIAL_RULES_HUB}" target="_blank" rel="noopener noreferrer">↗ Official ban list</a><button class="btn btn-small btn-ghost" data-nav="rules">← Rules Library</button></div>
  <div class="panel ban-list-panel"><div class="row-between wrap mb18"><div><h3>Constructed ban list</h3><p class="muted small">${total} banned entries in ${ui.banFormat==='standard'?'Standard':'2v2'} Constructed</p></div><div class="ban-format-switch" role="group" aria-label="Tournament format"><button data-action="ban-format" data-format="standard" class="${ui.banFormat==='standard'?'selected':''}" aria-pressed="${ui.banFormat==='standard'}">Standard</button><button data-action="ban-format" data-format="2v2" class="${ui.banFormat==='2v2'?'selected':''}" aria-pressed="${ui.banFormat==='2v2'}">2v2</button></div></div>

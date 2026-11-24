@@ -625,3 +625,46 @@ body{background:radial-gradient(circle at 90% 0%,#12447b1c,transparent 46%),#080
 .rv-artwork-select input[type=file]{max-width:100%;font-size:12px}
 .art-preview-header .row{flex-wrap:wrap;justify-content:flex-end}
 @media(max-width:700px){.rv-artwork-verify .btn{min-height:37px}.rv-artwork-candidate{height:min(36dvh,320px)}}
+
+/* v1.31: set selection, short collector number and multi-copy input */
+.manual-code-panel .manual-entry-fields{grid-template-columns:170px minmax(130px,1fr) 120px auto}
+.manual-code-panel .manual-entry-fields .select{height:45px;width:100%;min-width:0}
+@media(max-width:900px){.manual-code-panel .manual-entry-fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.manual-code-panel .manual-entry-fields .btn{grid-column:1/-1;width:100%}}
+@media(max-width:355px){.manual-code-panel .manual-entry-fields{grid-template-columns:1fr}.manual-code-panel .manual-entry-fields .btn{grid-column:1}}
+
+/* v1.31: recommended exact Rune art and linked-printings selection. */
+.rv-rune-art-browser{display:grid;gap:9px;border-top:1px solid var(--line);padding-top:15px;min-width:0}
+.rv-rune-art-browser-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.rv-rune-art-browser-heading h3{font-size:15px;margin:0}
+.rv-rune-art-recommend-label{color:#9dd9ff;border:1px solid #438bc4;background:#1c4a78a3;border-radius:7px;font-size:10px;padding:4px 7px;white-space:nowrap}
+.rv-rune-art-browser p{margin:0 0 2px}
+.rv-rune-art-recommend{display:flex;gap:13px;align-items:center;text-align:left;width:100%;background:#122d4b;border:1px solid #4494cf;border-radius:12px;padding:9px;color:var(--text);min-width:0}
+.rv-rune-art-recommend-image{display:grid;place-items:center;flex:0 0 78px;height:105px;overflow:hidden;border-radius:7px;background:#0c1c2f}
+.rv-rune-art-recommend-image img{height:100%;width:100%;object-fit:contain}
+.rv-rune-art-recommend>span:last-child{display:grid;gap:5px;min-width:0}
+.rv-rune-art-recommend strong{font-size:14px}.rv-rune-art-recommend small{font-size:11px;color:var(--muted)}.rv-rune-art-recommend em{color:#8dd3ff;font-size:11px;font-style:normal}
+.rv-rune-art-options{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;max-height:330px;overflow:auto;padding:1px 2px 9px}
+.rv-rune-art-option{min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;border:1px solid #3a547a;background:#101f37;color:var(--text);border-radius:10px;padding:7px;overflow:hidden}
+.rv-rune-art-option.selected,.rv-rune-art-option:focus-visible{border-color:#6cbdff;outline:2px solid #6cbdff;outline-offset:-2px}
+.rv-rune-art-option-photo{display:grid;place-items:center;overflow:hidden;height:130px;width:100%;background:#0b1729;border-radius:6px}
+.rv-rune-art-option-photo img{display:block;width:100%;height:100%;object-fit:contain}
+.rv-rune-art-option>strong,.rv-rune-art-option>small{max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center}
+.rv-rune-art-option>strong{font-size:11px}.rv-rune-art-option>small{font-size:9px;color:var(--muted)}
+.rv-rune-art-choice-empty{font-size:10px;line-height:1.35;color:#b3c7df;text-align:center;padding:8px}
+@media(max-width:700px){.rv-rune-art-options{grid-template-columns:repeat(3,minmax(0,1fr));max-height:320px}.rv-rune-art-option-photo{height:115px}}
+@media(max-width:380px){.rv-rune-art-options{grid-template-columns:repeat(2,minmax(0,1fr))}.rv-rune-art-option-photo{height:135px}}
+
+/* v1.31: actual visual Rune-art comparison, not just printing-code labels */
+.rv-rune-art-recommend-image{flex:0 0 clamp(116px,25%,166px);height:clamp(160px,32vw,220px)}
+.rv-rune-art-recommend-image img{display:block;width:100%;height:100%;object-fit:contain}
+.rv-rune-art-option-photo{height:clamp(145px,18vw,205px)}
+.rv-rune-art-option-hint{color:#8dd3ff!important;font-size:10px!important}
+.rv-rune-art-compare{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}
+.rv-rune-art-compare figure{margin:0;padding:10px;border:1px solid #375b88;border-radius:13px;background:#0b1c34;min-width:0}
+.rv-rune-art-compare-photo{height:clamp(180px,38vw,290px);display:grid;place-items:center;overflow:hidden;border-radius:9px;background:#091729}
+.rv-rune-art-compare-photo img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block}
+.rv-rune-art-compare figcaption{padding-top:9px;display:grid;gap:2px;text-align:center}
+.rv-rune-art-compare figcaption strong{font-size:12px}
+.rv-rune-art-compare figcaption small{font-size:11px;color:#bed2ec}
+@media(max-width:700px){.rv-rune-art-recommend-image{flex-basis:clamp(94px,35%,136px);height:180px}.rv-rune-art-option-photo{height:160px}.rv-rune-art-compare-photo{height:clamp(165px,53vw,260px)}}
+@media(max-width:380px){.rv-rune-art-recommend-image{flex-basis:112px;height:156px}.rv-rune-art-option-photo{height:165px}.rv-rune-art-compare-photo{height:170px}.rv-rune-art-compare{gap:7px}.rv-rune-art-compare figure{padding:6px}}
