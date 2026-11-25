@@ -1,3 +1,35 @@
+# RiftVault v1.32 — Complete App (Deck Builder + Mobile Navigation + Rune Gallery)
+
+This is a **full release**, built directly from v1.31, not a development kit. All existing files (OCR scanner, local catalogue, price feeds, official rules updater, inventory, decks, thumbnails, and artwork verification) are included. The existing inventory storage key remains **`riftvault-local-v1`**. No ownership migration or inventory reset is performed.
+
+## New in v1.32
+
+### Add Cards to Deck (with Legend legality)
+1. Open **My decks** → choose a deck → **+ Add Cards**. If the deck has no Legend, choose **Legend** as its section and add a Legend first.
+2. The **Legal cards** tab (default) shows permitted cards for your Legend and selected deck section; **Owned cards** shows permitted cards with free copies in Bulk; **All cards** explains why other cards are not legal.
+3. Choose the section (Legend, Champion, Main deck, Battlefields, Runes or Sideboard), quantity, and a card, then click **+ Add**. The decklist requirement updates **first**; your physical Bulk counts do not change.
+4. If compatible physical copies are available in Bulk, RiftVault prompts you to choose exact set/collector printing, finish and quantity. Choose **Yes, assign** to move the selected physical copies into that deck, or **No, later** to leave them in Bulk. If only 2 copies exist and you added 3, at most 2 can be assigned and the third remains an unfilled requirement. If none are available, there is no prompt.
+5. Each deck now shows **assigned / required** counts by section, including the chosen Legend, Champion and runes. Existing **Edit requirement → Remove** and quantity editing are preserved.
+
+The builder checks ordinary card/rune domains against the Legend, Champion tag matching, Main Deck and Rune/Battlefield section types, three-copy shared name limits, Signature limits, Rune and Battlefield caps, sideboard cap and the app's selected Standard/2v2 ban data. Some unusual Legend abilities and special tournament rulings require manual review; a domain source that is missing may limit what you can add until catalogue data refreshes. Imported or previously saved requirements are not silently deleted by these checks.
+
+### Mobile fixes
+- **Android Back:** browser or Android system Back now navigates from artwork previews and modals to their previous screen, from deck detail to the Decks list, and between previously visited tabs. The camera is stopped when the app leaves the Scanner tab. Opening Home directly adds no fake extra history entries, and repeated redraws do not add history.
+- **Rune artwork verification picker:** large galleries of linked Rune printings now scroll in a stable two-column mobile grid, with readable printing codes and non-collapsing image tiles. The v1.31 **Recommended artwork** matching the exact printed code still appears first.
+- The v1.31 manual scanner, official bans, and printed artwork verification are unchanged.
+
+### How to update an existing GitHub Pages installation
+1. **First export Settings → Download JSON Backup** from the existing app on the actual phone/browser where your data lives. Save it outside the app. Installed PWA and regular Chrome may have different storage.
+2. Unzip this archive and upload all contents to your GitHub repository **root**. Replace existing matching files; include both new files `features-v132.js` and `features-v132.css`. Keep the `.github/workflows/` and `scripts/` subfolders.
+3. Commit and wait for GitHub Pages deployment. Close/reopen your installed RiftVault app or refresh the browser site so the new service worker `riftvault-shell-v1.32` is installed.
+4. Confirm the inventory count and deck assignments before making edits. Check **My decks → + Add Cards**, the Rune artwork verification list, and Android Back. Restore your JSON backup if you accidentally opened a different storage context.
+
+**Important:** RiftVault has no automatic desktop/phone inventory sync. JSON is the lossless backup/restore format; Excel is an export. The browser's own local storage holds your inventory.
+
+**Testing:** v1.31's collector/artwork/official ban regressions and a v1.32 offline browser integration check passed (domain filtering, optional allocation, exact Bulk accounting, Back navigation, 17-row Rune gallery). Physical camera, installed Android PWA Back, and a live network catalogue/price refresh still require device testing.
+
+---
+
 # RiftVault v1.31 — Manual Set Entry, Current Ban List & Visual Rune Artwork Comparison
 - **Visual Rune-art comparison:** The recommended exact-printing image is shown as a large card image; every other known Rune printing has a picture (when available) and code underneath. Selecting an alternative opens a side-by-side comparison of the recommended and selected images before confirmation, including on narrow phones. Missing artwork is labelled rather than replaced with a potentially incorrect regular Rune.
 

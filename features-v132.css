@@ -1,0 +1,49 @@
+/* RiftVault v1.32: mobile artwork picker. Use after existing styles.css. */
+.rv-rune-art-options {
+  display:grid !important;
+  grid-template-columns:repeat(auto-fill,minmax(112px,1fr)) !important;
+  grid-auto-rows:max-content !important;
+  align-content:start !important;
+  align-items:start !important;
+  gap:12px !important;
+  max-height:min(70dvh,680px) !important;
+  overflow-y:auto !important;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+  padding:6px !important;
+}
+.rv-rune-art-options > * { min-height:0 !important; height:auto !important; align-self:start !important; }
+.rv-rune-art-options img { width:100%;height:auto;object-fit:contain;display:block;max-height:none; }
+.rv-rune-art-options button, .rv-rune-art-options label {white-space:normal !important; overflow:visible !important;}
+.rv-rune-art-options :is(.selected,[aria-selected="true"],input:checked + label) {
+  outline:3px solid #3b82f6 !important;
+  outline-offset:2px;
+  border-radius:8px;
+}
+@media(max-width:420px){.rv-rune-art-options{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:10px!important;}}
+/* Independent mobile card tiles cannot compress vertically when many printings exist. */
+.rv-rune-art-options{grid-auto-flow:row!important;grid-auto-rows:max-content!important;}
+.rv-rune-art-option{min-height:195px!important;justify-content:flex-start!important;}
+.rv-rune-art-option-photo{flex:0 0 auto!important;height:clamp(135px,34vw,215px)!important;}
+.rv-rune-art-option>small,.rv-rune-art-option>strong{white-space:normal!important;overflow-wrap:anywhere!important;line-height:1.3!important;}
+@media(max-width:420px){.rv-rune-art-option{min-height:196px!important}.rv-rune-art-option-photo{height:145px!important;}}
+/* Deck builder and live allocation counters */
+.v132-section-overview{background:var(--surface,#111f39);border:1px solid #345376;border-radius:14px;padding:16px;margin:0 0 20px;}
+.v132-section-overview h3{margin:2px 0 0;font-size:17px}
+.v132-section-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:14px}
+.v132-section-stat{background:#101c33;border:1px solid #2c466b;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.v132-section-stat>span{font-size:12px;color:#a9bdd5}.v132-section-stat>strong{font-size:20px;color:#e9f4ff}.v132-section-stat>small{font-size:10px;color:#8daecd}
+.v132-over-limit{border-color:#d87979}.v132-section-header-count{float:right;color:#b2d9fb;font-size:12px;font-weight:700}
+.v132-legend-line{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#0e2138;padding:12px;border-radius:10px;margin:12px 0;color:#cee5ff;flex-wrap:wrap}
+.v132-builder-controls{display:grid;grid-template-columns:minmax(0,1fr) 115px;gap:12px;margin:12px 0}
+.v132-filter-row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.v132-result-count{font-size:12px;color:#afc3df;margin-bottom:8px}
+.v132-card-results{max-height:min(53dvh,560px);overflow-y:auto;overscroll-behavior:contain;padding:2px;display:grid;gap:8px}
+.v132-result,.v132-stock-row{display:flex;align-items:center;gap:12px;padding:10px;border:1px solid #38516f;border-radius:12px;background:#0e1d34;min-width:0}
+.v132-result.v132-illegal{opacity:.75}.v132-result-main{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}.v132-result-main>strong{font-size:14px;overflow-wrap:anywhere}
+.v132-result-main>small{font-size:11px;color:#b7cce2;overflow-wrap:anywhere}.v132-result-main>.v132-reason{color:#ffc4c4}.v132-result-main>.v132-legal-note{color:#8fe3b5}
+.v132-mini-art{width:57px;height:76px;flex:0 0 57px;overflow:hidden;border-radius:6px;background:#162d45;display:grid;place-items:center}
+.v132-mini-art img{width:100%;height:100%;object-fit:contain}.v132-mini-art .placeholder-art{font-size:18px}
+.v132-stock-choices{display:grid;gap:9px;max-height:52dvh;overflow:auto;margin:14px 0}
+.v132-stock-count{display:grid;gap:4px;width:78px;flex:0 0 78px;font-size:11px}.v132-stock-count input{width:100%;padding:8px;text-align:center}
+.v132-no-results{padding:24px;text-align:center;border:1px dashed #526c87;border-radius:12px;color:#bfd4eb;font-size:13px}
+@media(max-width:680px){.v132-section-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.v132-result{gap:8px;padding:8px}.v132-mini-art{width:48px;height:67px;flex-basis:48px}.v132-result .btn{padding:7px 9px;font-size:11px}.v132-builder-controls{grid-template-columns:minmax(0,1fr) 85px}}
