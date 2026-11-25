@@ -1,5 +1,5 @@
  'use strict';
-/* RiftArmoury v1.33.3: multiple evidence-backed roles; one shared record per card name.
+/* RiftArmoury v1.33.4: multiple evidence-backed roles; one shared record per card name.
  * Never changes physical stock. Remote catalogue contains public card information only.
  * Rules-based suggestions are NOT authoritative card rulings or trained AI. */
 (function(){
@@ -29,7 +29,7 @@
   ['Counterplay',/(?:\bcounter\b.{0,35}\b(?:spell|ability)\b|\b(?:negate|cancel)\b.{0,30}\b(?:spell|ability)\b)/i],
   ['Disruption',/(?:\bopponent\b.{0,35}\b(?:discard|can't play|cannot play|loses)\b|\b(?:enemy|opposing)\b.{0,35}\bcan't\b)/i],
  ];
- const STORE='riftarmoury-role-text-v1333',STALE=7*86400000;
+ const STORE='riftarmoury-role-text-v1334',STALE=7*86400000;
  const SOURCES=[
   {name:'Riot-gallery community export',url:'https://raw.githubusercontent.com/Dystorted888/riftbound-card-data/main/data/cards.json'},
   {name:'Community card and errata export',url:'https://github.com/LouisCourrian/riftbound-cards/releases/latest/download/cards.json'}
@@ -38,17 +38,51 @@
  const code=s=>normalizedCode(String(s||''));
  const safe=s=>escapeHtml(String(s??''));
  let rows=[],byCode=new Map(),byName=new Map(),status='loading',source='',updated=0,working=null;
- function entryName(row){return String(row.fullName||row.display_name||((row.name&&row.subtitle)?row.name+', '+row.subtitle:row.name)||'').trim();}
+ function entryName(row){
+  if(typeof row.display_name==='string'&&row.display_name.trim())return row.display_name.trim();
+  if(typeof row.fullName==='string'&&row.fullName.trim())return row.fullName.trim();
+  if(typeof row.full_name==='string'&&row.full_name.trim())return row.full_name.trim();
+  const name=String(row.name||'').trim(),subtitle=String(row.subtitle||'').trim();
+  return subtitle&&name&&!norm(name).includes(norm(subtitle))?name+', '+subtitle:name;
+ }
  function entryCode(row){return code(row.public_code||row.cardCode||row.card_code||row.publicCode||row.code||'');}
- function abilityText(row){
-  const attr=row.attributes&&typeof row.attributes==='object'?row.attributes:{};
-  const options=[row.abilityEffective,row.abilityCorrected,row.rulesText,row.rules_text,row.abilityText,row.cardText,row.description,row.abilityOriginal,row.ability,row.text,row.effect,attr.abilityEffective,attr.ability,attr.rulesText,attr.text];
-  for(const x of options){if(typeof x==='string'&&x.trim().length>=3)return x.trim().slice(0,3000);}
-  if(Array.isArray(row.abilities))return row.abilities.map(x=>typeof x==='string'?x:(x&&typeof x==='object'?x.text||x.description||x.effect||'':'')).filter(Boolean).join(' ').slice(0,3000);
+ // Riot's gallery snapshot uses {text:{plain,rich}}, not a top-level string.
+ // Use corrected/errata text first where a feed explicitly provides it.
+ function plainHtml(value){
+  return String(value||'').replace(/<\s*br\s*\/?\s*>/gi,'\n').replace(/<\/\s*(?:p|div|li)\s*>/gi,'\n')
+   .replace(/<[^>]*>/g,' ').replace(/&(?:nbsp|#160);/gi,' ').replace(/&amp;/gi,'&')
+   .replace(/&lt;/gi,'<').replace(/&gt;/gi,'>').replace(/&quot;/gi,'"')
+   .replace(/&#(?:39|x27);/gi,"'").replace(/&#(\d+);/gi,(_,n)=>{const v=Number(n);return v>31&&v<0x110000?String.fromCodePoint(v):' ';})
+   .replace(/[ \t]+/g,' ').trim();
+ }
+ function readTextField(value,depth=0){
+  if(typeof value==='string')return value.trim();
+  if(!value||depth>3)return '';
+  if(Array.isArray(value))return value.map(x=>readTextField(x,depth+1)).filter(Boolean).join('\n').trim();
+  if(typeof value==='object'){
+   for(const key of ['plain','plainText','plain_text','corrected','effective','rulesText','abilityText','description','effect','body','value','text','rich','html']){
+    if(!(key in value))continue;
+    const txt=readTextField(value[key],depth+1);
+    if(txt){return key==='rich'||key==='html'?plainHtml(txt):txt;}
+   }
+  }
   return '';
  }
- function extract(data){const all=Array.isArray(data)?data:Array.isArray(data?.cards)?data.cards:Array.isArray(data?.data?.cards)?data.data.cards:Array.isArray(data?.data)?data.data:[];
-  return all.filter(r=>r&&typeof r==='object').map(r=>({name:norm(entryName(r)),code:entryCode(r),text:abilityText(r),type:String(r.cardType||r.type||'')})).filter(r=>(r.name||r.code)&&r.text);
+ function abilityText(row){
+  const attr=row.attributes&&typeof row.attributes==='object'?row.attributes:{};
+  const candidates=[row.abilityEffective,row.abilityCorrected,row.ability_effective,row.ability_corrected,
+   row.rulesText,row.rules_text,row.abilityText,row.cardText,row.abilityOriginal,row.ability_original,
+   row.ability,row.text,row.abilities,row.effect,row.description,
+   attr.abilityEffective,attr.ability,attr.rulesText,attr.text];
+  for(const field of candidates){const value=readTextField(field);if(value.length>=3)return value.slice(0,3000);}
+  return '';
+ }
+ function extract(data){
+  const all=Array.isArray(data)?data:Array.isArray(data?.cards)?data.cards:
+   Array.isArray(data?.data?.cards)?data.data.cards:Array.isArray(data?.data)?data.data:[];
+  return all.filter(r=>r&&typeof r==='object')
+   .map(r=>({name:norm(entryName(r)),code:entryCode(r),text:abilityText(r),type:String(r.cardType||r.card_type||r.type||'')}))
+   .filter(r=>(r.name||r.code)&&r.text);
  }
  function indexRows(items){const codes=new Map(),names=new Map();
   const add=(map,key,r)=>{if(!key)return;if(!map.has(key)){map.set(key,r);return;}const old=map.get(key);if(old&&old.text!==r.text)map.set(key,null);};
@@ -86,16 +120,17 @@
  function reset(name){const key=norm(name),old=insight(name);(state.cardInsights||(state.cardInsights={}))[key]={...old,role:null,roles:[],roleOverrides:{add:[],remove:[]},roleEditedAt:null};save();return details(name);}
  function cardsForRoles(name){return details(name).selected;}
  function renderBadges(name,entry){const d=details(name,entry);return d.selected.length?`<span class="rv1333-tags">${d.selected.map(r=>`<span class="rv1333-tag">${safe(r)}</span>`).join('')}</span>`:'<span class="muted micro">No roles identified</span>';}
+ function notify(){try{window.dispatchEvent(new CustomEvent('riftarmoury:roles-updated',{detail:{count:rows.length,status,source}}));}catch(e){console.warn('Role update event unavailable',e);}}
  function readCache(){try{const obj=JSON.parse(localStorage.getItem(STORE)||'null');if(obj?.rows&&Array.isArray(obj.rows)){indexRows(obj.rows);source=String(obj.source||'Cached card text');updated=Number(obj.updated)||0;status='ready';}}catch(e){console.warn('Role cache not available',e);}}
  async function refresh(force=false){if(working)return working;if(!force&&rows.length>200&&Date.now()-updated<STALE){status='ready';return {count:rows.length,source};}
   status='loading';working=(async()=>{for(const item of SOURCES){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);
    try{const response=await fetch(item.url,{cache:force?'reload':'default',signal:controller.signal});if(!response.ok)throw Error('HTTP '+response.status);
     const fetched=extract(await response.json());if(fetched.length<150)throw Error('Incomplete card-text snapshot: '+fetched.length);
-    indexRows(fetched);source=item.name;status='ready';updated=Date.now();try{localStorage.setItem(STORE,JSON.stringify({rows,source,updated}));}catch(e){console.warn('Card role cache full',e);}render();return {count:rows.length,source};
+    indexRows(fetched);source=item.name;status='ready';updated=Date.now();try{localStorage.setItem(STORE,JSON.stringify({rows,source,updated}));}catch(e){console.warn('Card role cache full',e);}notify();return {count:rows.length,source};
    }catch(e){console.warn('Role text source unavailable:',item.name,e);}finally{clearTimeout(timer);}
-  }status=rows.length?'ready':'unavailable';render();return {count:rows.length,source};})().finally(()=>{working=null;});return working;
+  }status=rows.length?'ready':'unavailable';notify();return {count:rows.length,source};})().finally(()=>{working=null;});return working;
  }
- function ingest(data){const parsed=extract(data);indexRows(parsed);source='Injected dataset';status='ready';updated=Date.now();return parsed.length;}
- window.RiftArmouryRoles={version:'1.33.3',groups:GROUPS,roles:ROLES,lookup,suggested,details,saveSelection,reset,renderBadges,refresh,status:()=>({status,source,count:rows.length,updated}),ingest,extract};
+ function ingest(data){const parsed=extract(data);indexRows(parsed);source='Injected dataset';status='ready';updated=Date.now();notify();return parsed.length;}
+ window.RiftArmouryRoles={version:'1.33.4',groups:GROUPS,roles:ROLES,lookup,suggested,details,saveSelection,reset,renderBadges,refresh,status:()=>({status,source,count:rows.length,updated}),ingest,extract};
  readCache();Promise.resolve().then(()=>refresh(false)).catch(e=>console.warn('Role loading issue',e));
 })();

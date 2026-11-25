@@ -104,7 +104,7 @@ with sync_playwright() as pw:
     assert after['notes']==0,after
     assert after['tab']=='workshop',after
     assert after['dataKey']=='riftvault-local-v1',after
-    assert after['version']=='1.33.3',after
+    assert after['version']=='1.33.4',after
     assert not errs,errs
     browser.close()
 print('PASS: full card art preview, independent Edit tags and Review, live-filtered candidates, mobile Back, keyboard, no ownership/deck changes')

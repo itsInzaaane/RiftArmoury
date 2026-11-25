@@ -6,6 +6,8 @@
   const ROLES = ['Unclassified',...window.RiftArmouryRoles.roles];
   const MAIN_SECTIONS = new Set(['MainDeck','Champion','Sideboard']);
   const ws = {deckId:null,fromId:'',query:'',onlyBulk:false};
+  let roleEditorDirty=false;
+  let roleEditorDraft=null;
   const norm = s=>normalizeName(String(s||''));
   const safe = s=>escapeHtml(String(s??''));
   const copy = obj=>JSON.parse(JSON.stringify(obj));
@@ -127,7 +129,7 @@
       const energy=costInfo(requirementName(e),'energy',e),power=costInfo(requirementName(e),'power',e);
       const label=energy.source==='auto'||power.source==='auto'?'Auto':energy.source==='manual'||power.source==='manual'?'Manual fallback':'Not found';
       const contents=`<span class="rv133-small-art">${cardArt(p||{})}</span><span class="rv133-annotation-info"><strong>${safe(requirementName(e))}</strong><small>${safe(SECTION_LABEL[e.section])} · ×${Number(e.required)||0} · ${safe(roleName(requirementName(e)))}</small><small>Energy ${energy.value??'Unknown'} · Power ${power.value??'Unknown'} · ${safe(label)}${note.note?' · '+safe(note.note):''}</small><small class="rv133-view-hint">Tap to view card</small></span>`;
-      return `<div class="rv133-annotation-row">${workshopCardPreview(p,requirementName(e),contents)}<button type="button" class="btn btn-small btn-ghost" data-action="rv133-note" data-name="${safe(requirementName(e))}">Edit tags</button></div>`;
+      return `<div class="rv133-annotation-row">${workshopCardPreview(p,requirementName(e),contents)}<button type="button" class="btn btn-small btn-ghost" data-action="rv133-note" data-name="${safe(requirementName(e))}" data-printing="${safe(p?.id||'')}">Edit tags</button></div>`;
     }).join('')||'<p class="muted small">Add Main Deck cards to annotate roles and costs.</p>'}</div>`;
   }
   function candidateEvaluation(deck,source,candidate){
@@ -184,18 +186,37 @@
     <section class="panel mb18"><div class="row-between wrap"><h3>Smart card substitutions</h3><span class="pill">Legend-aware</span></div>${swapView(deck)}</section>
     <section class="panel mb18 rv133-history">${historyList(deck)}</section>`}`;
   }
+  function cardForRoleEditor(name,modal){
+    const exact=modal?.printingId?getMeta(modal.printingId):null;
+    if(exact&&norm(exact.name)===norm(name))return exact;
+    const selected=findDeck(modal?.deckId);
+    const row=selected?.entries.find(e=>norm(requirementName(e))===norm(name));
+    if(row){const card=cardForEntry(row);if(card)return card;}
+    const prints=printingsFor(name);
+    return prints.find(p=>!p.isAltArt&&!p.isVariant)||prints[0]
+      ||Object.values(state.printings||{}).find(p=>norm(p.name)===norm(name))||null;
+  }
   function noteDialog(name){
-    const roleApi=window.RiftArmouryRoles,info=roleApi.details(name),note=noteFor(name),energy=costInfo(name,'energy'),power=costInfo(name,'power');
-    const auto=energy.source==='auto'||power.source==='auto';
-    const source=roleApi.status();
+    const m=ui.modal,card=cardForRoleEditor(name,m),roleApi=window.RiftArmouryRoles;
+    const info=roleApi.details(name,m?.printingId&&card?{code:card.code,name:card.name}:null);
+    const note=noteFor(name),energy=costInfo(name,'energy'),power=costInfo(name,'power');
+    const auto=energy.source==='auto'||power.source==='auto',source=roleApi.status();
+    const art=card?.id?`<button type="button" class="rv1334-editor-art" data-action="image-preview" data-id="${safe(card.id)}" aria-label="Enlarge ${safe(name)} card artwork">${cardArt(card)}<span class="rv1334-zoom-label">⌕ Tap card to zoom</span></button>`
+      :'<div class="rv1334-editor-art rv1334-editor-noart"><span>Card artwork unavailable</span></div>';
+    const artTop=`<div class="rv1334-card-header">${art}<div class="rv1334-card-identity"><strong>${safe(card?.name||name)}</strong><span>${safe(card?.code||'Printing unknown')}${card?.setName?' · '+safe(card.setName):''}</span></div></div>`;
     const roleGroups=roleApi.groups.map(g=>`<fieldset class="rv1333-role-group"><legend>${safe(g.name)}</legend><div class="rv1333-role-grid">${g.roles.map(role=>{
       const match=info.automatic.find(x=>x.role===role);
       return `<label class="rv1333-role-check"><input type="checkbox" data-rv1333-role="${safe(role)}" ${info.selected.includes(role)?'checked':''}/><span>${safe(role)}${match?'<small>Suggested · '+safe(match.evidence)+'</small>':''}</span></label>`;
     }).join('')}</div></fieldset>`).join('');
-    return modalShell('Edit strategic roles',name,`<p class="muted small">Choose as many roles as apply. Card roles are shared between Inventory and Deck Workshop; your manual edits override suggestions.</p>
+    const status=source.status==='loading'?'Loading card abilities…':
+     info.source==='unknown'?(source.count?'No matching ability text for this card yet. You can still select roles manually.':'Ability text unavailable. Connect to the internet and refresh.'):
+     info.automatic.length?`${info.automatic.length} automatic ${info.automatic.length===1?'suggestion':'suggestions'} from card text`:
+     'Card text found, but no reliable automatic role match';
+    return modalShell('Edit strategic roles',name,`${artTop}
+    <p class="muted small">Choose any combination of roles. Your selections are shared between Inventory and Deck Workshop, and manual edits take priority.</p>
     <div class="rv133-auto-cost-pill"><strong>⚡ Energy ${energy.value??'Unknown'} · ◆ Power ${power.value??'Unknown'}</strong><small>${auto?'Automatically matched to card data':energy.source==='manual'||power.source==='manual'?'Older manually recorded fallback':'Waiting for catalogue values'}</small></div>
-    <div class="rv1333-role-status"><span>${source.status==='loading'?'Loading ability text…':source.count?`${source.count} card abilities indexed`:'Ability text unavailable; choose roles manually'}</span><button type="button" class="btn btn-small btn-ghost" data-action="rv133-refresh-roles">↻ Refresh suggestions</button></div>
-    ${roleGroups}<p class="muted micro">Only obvious effects are suggested automatically. Late Game, Combo, Synergy and other contextual roles need deck-level judgement. Suggestions are unofficial.</p>
+    <div class="rv1333-role-status"><span id="rv1334-ability-status" aria-live="polite">${safe(status)}</span><button type="button" class="btn btn-small btn-ghost" data-action="rv133-refresh-roles">↻ Refresh suggestions</button></div>
+    ${roleGroups}<p class="muted micro">Suggestions are best-effort matches to printed effects, not AI or official rulings. Contextual roles such as Synergy and Late Game still require judgement.</p>
     ${!auto?`<details class="rv133-manual-fallback"><summary>Fallback only: enter printed costs if catalogue unavailable</summary><div class="rv133-note-costs"><label class="form-field"><span>Energy</span><input class="input" type="number" min="0" max="20" id="rv133-note-energy" value="${costNumber(note.energy)??''}" placeholder="Unknown"></label><label class="form-field"><span>Power</span><input class="input" type="number" min="0" max="20" id="rv133-note-power" value="${costNumber(note.power)??''}" placeholder="Unknown"></label></div></details>`:''}
     <label class="form-field"><span>Personal strategy note</span><textarea class="input" id="rv133-note-text" rows="3" maxlength="500" placeholder="Optional: how this card fits your strategy">${safe(note.note||'')}</textarea></label>`,
     '<button class="btn btn-ghost" data-action="rv133-cancel">Cancel</button><button class="btn btn-ghost" data-action="rv133-reset-roles">Reset to suggestions</button><button class="btn btn-primary" data-action="rv133-save-note">Save roles</button>',true);
@@ -250,7 +271,15 @@
   render=function(){const r=originalRender();if(ui.tab==='workshop')document.getElementById('main').innerHTML=renderDeckWorkshop();return r;};
   const originalModal=renderModal;
   renderModal=function(){
-    if(ui.modal?.type==='rv133-note-editor')document.getElementById('modal-root').innerHTML=noteDialog(ui.modal.name);
+    if(ui.modal?.type==='rv133-note-editor'){
+      document.getElementById('modal-root').innerHTML=noteDialog(ui.modal.name);
+      if(roleEditorDraft&&roleEditorDraft.name===norm(ui.modal.name)){
+        document.querySelectorAll('[data-rv1333-role]').forEach(x=>x.checked=roleEditorDraft.roles.includes(x.dataset.rv1333Role));
+        const note=document.getElementById('rv133-note-text');if(note)note.value=roleEditorDraft.note;
+        const energy=document.getElementById('rv133-note-energy');if(energy&&roleEditorDraft.energy!==null)energy.value=roleEditorDraft.energy;
+        const power=document.getElementById('rv133-note-power');if(power&&roleEditorDraft.power!==null)power.value=roleEditorDraft.power;
+      }
+    }
     else if(ui.modal?.type==='rv133-swap-review'){
       const d=findDeck(ui.modal.deckId),e=d?.entries.find(x=>x.id===ui.modal.fromId);
       if(!d||!e){ui.modal=null;return originalModal();}
@@ -283,10 +312,10 @@
     e.preventDefault();e.stopImmediatePropagation();
     const action=btn.dataset.action,deck=selectedDeck();
     if(action==='rv133-refresh-roles'){
-      window.RiftArmouryRoles.refresh(true).then(()=>renderModal()).catch(()=>renderModal());return;
+      window.RiftArmouryRoles.refresh(true).catch(()=>{if(ui.modal?.type==='rv133-note-editor'&&!roleEditorDirty)renderModal();});return;
     }
     if(action==='rv133-edit-from-detail'){
-      showModal('rv133-note-editor',{name:btn.dataset.name,origin:'inventory',printingId:btn.dataset.printing||null,returnType:ui.modal?.type==='printing-detail'?'printing-detail':'card'});return;
+      roleEditorDirty=false;roleEditorDraft=null;showModal('rv133-note-editor',{name:btn.dataset.name,origin:'inventory',printingId:btn.dataset.printing||null,returnType:ui.modal?.type==='printing-detail'?'printing-detail':'card'});return;
     }
     if(action==='rv133-refresh-costs'){
       window.RiftArmouryAutoCosts?.refresh(true).then(()=>render()).catch(()=>render());return;
@@ -299,7 +328,7 @@
     if(action==='rv133-open-deck'){if(deck){ui.tab='decks';ui.deckId=deck.id;render();}return;}
     if(action==='rv133-reset-roles'){
       const m=ui.modal;if(m?.type!=='rv133-note-editor')return;
-      window.RiftArmouryRoles.reset(m.name);renderModal();toast('Manual role overrides reset to automatic suggestions.');return;
+      window.RiftArmouryRoles.reset(m.name);roleEditorDirty=false;roleEditorDraft=null;renderModal();toast('Manual role overrides reset to automatic suggestions.');return;
     }
     if(action==='rv133-save-note'){
       const m=ui.modal;if(m?.type!=='rv133-note-editor')return;
@@ -310,16 +339,18 @@
         toast('Fallback costs must be between 0 and 20.',true);return;
       }
       window.RiftArmouryRoles.saveSelection(m.name,selections,String(document.getElementById('rv133-note-text')?.value||''),{energy,power});
+      roleEditorDraft=null;roleEditorDirty=false;
       if(m.origin==='inventory'){if(m.returnType==='printing-detail')showModal('printing-detail',{id:m.printingId});else showModal('card',{name:m.name,printingId:m.printingId});}
       else{closeModal();}
       render();toast('Strategic roles saved for this card in Inventory and Deck Workshop.');return;
     }
     if(action==='rv133-cancel'&&ui.modal?.type==='rv133-note-editor'&&ui.modal.origin==='inventory'){
+      roleEditorDraft=null;roleEditorDirty=false;
       const m=ui.modal;if(m.returnType==='printing-detail')showModal('printing-detail',{id:m.printingId});else showModal('card',{name:m.name,printingId:m.printingId});return;
     }
     if(!deck){toast('Choose a deck first.',true);return;}
 
-    if(action==='rv133-note'){showModal('rv133-note-editor',{name:btn.dataset.name,deckId:deck.id});return;}
+    if(action==='rv133-note'){roleEditorDirty=false;roleEditorDraft=null;showModal('rv133-note-editor',{name:btn.dataset.name,deckId:deck.id,printingId:btn.dataset.printing||null});return;}
     if(action==='rv133-checkpoint'){addSnapshot(deck,deck.entries,'Manual checkpoint');save();render();toast('Decklist checkpoint saved.');return;}
     if(action==='rv133-review-swap'){
       const source=deck.entries.find(x=>x.id===ws.fromId);const candidate=getNamesForSearch().find(x=>norm(x.name)===norm(btn.dataset.target));
@@ -349,7 +380,7 @@
       if(!d||!snap)return;
       addSnapshot(d,d.entries,'Before restore');restoreRequirements(d,snap);closeModal();render();toast('Previous decklist requirements restored. Compatible physical assignments preserved; excess returned to Bulk.');return;
     }
-    if(action==='rv133-cancel'){closeModal();return;}
+    if(action==='rv133-cancel'){roleEditorDraft=null;roleEditorDirty=false;closeModal();return;}
   },true);
   document.addEventListener('change',event=>{
     if(event.target?.id==='rv133-deck-select'){ws.deckId=event.target.value;ws.fromId='';ws.query='';render();}
@@ -366,7 +397,31 @@
       }
     }
   },true);
+  window.addEventListener('click',event=>{
+    const preview=event.target?.closest?.('[data-action="image-preview"]');
+    if(ui.modal?.type==='rv133-note-editor'&&preview){
+      roleEditorDraft={name:norm(ui.modal.name),roles:[...document.querySelectorAll('[data-rv1333-role]:checked')].map(x=>x.dataset.rv1333Role),
+        note:document.getElementById('rv133-note-text')?.value||'',energy:document.getElementById('rv133-note-energy')?.value??null,power:document.getElementById('rv133-note-power')?.value??null};
+    }
+  },true);
+  // Update the open editor when a catalogue load completes. Never discard
+  // unsaved checkboxes or notes in response to a background refresh.
+  document.addEventListener('change',event=>{
+    if(ui.modal?.type==='rv133-note-editor'&&event.target?.matches('[data-rv1333-role], #rv133-note-energy, #rv133-note-power'))roleEditorDirty=true;
+  },true);
+  document.addEventListener('input',event=>{
+    if(ui.modal?.type==='rv133-note-editor'&&event.target?.matches('#rv133-note-text, #rv133-note-energy, #rv133-note-power'))roleEditorDirty=true;
+  },true);
+  window.addEventListener('riftarmoury:roles-updated',()=>{
+    if(ui.modal?.type==='rv133-note-editor'){
+      if(roleEditorDirty){
+        const el=document.getElementById('rv1334-ability-status');
+        if(el)el.textContent='New card data loaded. Save your edits, then reopen Edit Tags to review the updated suggestions.';
+      }else renderModal();
+    }else if(ui.modal){renderModal();}
+    else render();
+  });
   // Expose read-only analysis helpers for offline tests and future v1.34 engine.
-  window.RiftArmoury133={version:'1.33.3',roles:ROLES,cardNotes:noteFor,costData,costInfo,roleData,candidates:candidateList,restore:restoreRequirements,snapshot:(d,label)=>addSnapshot(d,d.entries,label),fingerprint};
+  window.RiftArmoury133={version:'1.33.4',roles:ROLES,cardNotes:noteFor,costData,costInfo,roleData,candidates:candidateList,restore:restoreRequirements,snapshot:(d,label)=>addSnapshot(d,d.entries,label),fingerprint};
   render();
 })();

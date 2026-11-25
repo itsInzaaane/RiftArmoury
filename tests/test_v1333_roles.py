@@ -87,7 +87,7 @@ with sync_playwright() as pw:
  assert any(k=='Late Game' and q==2 for k,q in counts),counts
  after=page.evaluate("""() => ({total:totalOwned(),stock:JSON.stringify(state.stock),qty:state.decks[0].entries.find(e=>e.name==='Fury Tester').required,key:DATA_KEY,version:window.RiftArmoury133.version,tagCount:window.RiftArmouryRoles.roles.length})""")
  assert after['total']==data['before'] and after['stock']==data['stock'] and after['qty']==data['entry']==2,(after,data)
- assert after['key']=='riftvault-local-v1' and after['version']=='1.33.3'
+ assert after['key']=='riftvault-local-v1' and after['version']=='1.33.4'
  assert after['tagCount']==27
  assert not errors, errors
  browser.close()

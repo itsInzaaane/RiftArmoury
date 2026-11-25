@@ -19,7 +19,7 @@ with sync_playwright() as p:
  for script in ['app.js','features-v121.js','features-v132.js','costs-v1331.js','roles-v1333.js','features-v133.js']:
   page.add_script_tag(content=(ROOT/script).read_text())
  assert not errors,errors
- assert page.evaluate('window.RiftArmoury133.version')=='1.33.3'
+ assert page.evaluate('window.RiftArmoury133.version')=='1.33.4'
  assert page.evaluate('DATA_KEY')=='riftvault-local-v1'
  assert page.locator('.brand strong').inner_text()=='RiftArmoury'
  assert page.locator('nav#side-nav [data-nav="workshop"]').count()==1
