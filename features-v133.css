@@ -42,3 +42,31 @@
 .rv133-manual-fallback {margin:12px 0; border:1px solid var(--line,#273958);border-radius:10px;padding:10px}
 .rv133-manual-fallback summary {cursor:pointer;color:var(--muted);font-size:12px}
 .rv133-manual-fallback .rv133-note-costs{margin-top:12px}
+
+/* v1.33.2 — independent full card preview in Workshop, distinct from Edit tags and Review */
+.rv133-card-view{display:flex;align-items:center;flex:1;gap:12px;min-width:0;margin:0;padding:6px;border:1px solid transparent;border-radius:9px;background:transparent;color:inherit;text-align:left;font:inherit;cursor:pointer;transition:background .15s,border-color .15s}
+.rv133-card-view:hover,.rv133-card-view:focus-visible{background:rgba(54,119,224,.12);border-color:var(--accent, #367cff);outline:none}
+.rv133-card-view:active{background:rgba(54,119,224,.18)}
+.rv133-card-view .rv133-small-art{pointer-events:none}
+.rv133-card-view .rv133-annotation-info,.rv133-card-view .rv133-candidate-info{pointer-events:none}
+.rv133-card-unavailable{cursor:default;opacity:.7}
+.rv133-card-unavailable:hover{background:transparent;border-color:transparent}
+.rv133-view-hint{color:var(--accent,#78aaff)!important;font-size:10px!important}
+.rv133-annotation-row>.btn,.rv133-candidate>.btn{flex-shrink:0}
+@media(max-width:500px){.rv133-card-view{gap:8px;padding:4px}.rv133-card-view .rv133-small-art{flex:0 0 33px}}
+
+/* v1.33.3 — shared multi-role editor; the established colour system is unchanged. */
+.rv1333-inventory-roles{border-top:1px solid var(--line);padding:18px 0;margin-top:20px}
+.rv1333-inventory-roles h3{margin:0}
+.rv1333-inventory-roles p{margin:12px 0 0}
+.rv1333-tags{display:flex;gap:5px;flex-wrap:wrap;margin:11px 0}
+.rv1333-tag{border:1px solid #508aca80;background:#206cbe23;border-radius:99px;color:#bcdcff;padding:4px 8px;font-size:10px;line-height:1.25}
+.rv1333-role-status{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:11px;margin:10px 0 17px}
+.rv1333-role-group{border:1px solid var(--line);border-radius:12px;padding:12px;margin:12px 0;min-width:0}
+.rv1333-role-group legend{font-size:12px;font-weight:800;color:#b9d9ff;padding:0 5px}
+.rv1333-role-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 12px}
+.rv1333-role-check{display:flex;align-items:flex-start;gap:8px;font-size:12px;cursor:pointer;min-width:0}
+.rv1333-role-check input{flex:0 0 auto;width:15px;height:15px;margin-top:2px;accent-color:var(--accent)}
+.rv1333-role-check span{min-width:0;overflow-wrap:anywhere}
+.rv1333-role-check small{display:block;color:var(--muted);font-size:10px;line-height:1.3;margin-top:2px}
+@media(max-width:520px){.rv1333-role-grid{grid-template-columns:1fr}.rv1333-role-group{padding:10px}.rv1333-tag{font-size:10px}}

@@ -16,10 +16,10 @@ with sync_playwright() as p:
  page.evaluate('''() => {const data={};Object.defineProperty(window,'localStorage',{value:{getItem:k=>data[k]??null,setItem:(k,v)=>data[k]=String(v),removeItem:k=>delete data[k]},configurable:true});window.fetch=async()=>{throw Error('offline test')};}''')
  for style in ['styles.css','features-v121.css','features-v132.css','features-v133.css']:
   page.add_style_tag(content=(ROOT/style).read_text())
- for script in ['app.js','features-v121.js','features-v132.js','costs-v1331.js','features-v133.js']:
+ for script in ['app.js','features-v121.js','features-v132.js','costs-v1331.js','roles-v1333.js','features-v133.js']:
   page.add_script_tag(content=(ROOT/script).read_text())
  assert not errors,errors
- assert page.evaluate('window.RiftArmoury133.version')=='1.33.1'
+ assert page.evaluate('window.RiftArmoury133.version')=='1.33.3'
  assert page.evaluate('DATA_KEY')=='riftvault-local-v1'
  assert page.locator('.brand strong').inner_text()=='RiftArmoury'
  assert page.locator('nav#side-nav [data-nav="workshop"]').count()==1
@@ -48,12 +48,12 @@ with sync_playwright() as p:
  assert page.locator('.rv133-annotation-row').count()==1
  # Set real manual annotations, saved in browser state, no stock change.
  page.locator('[data-action="rv133-note"]').click()
- page.locator('#rv133-note-role').select_option('Early pressure')
+ page.locator('[data-rv1333-role="Early Pressure"]').check()
  page.locator('.rv133-manual-fallback summary').click()
  page.locator('#rv133-note-energy').fill('2')
  page.locator('#rv133-note-power').fill('1')
  page.locator('[data-action="rv133-save-note"]').click()
- assert page.evaluate('window.RiftArmoury133.cardNotes("Fury Tester").role')=='Early pressure'
+ assert page.evaluate('window.RiftArmouryRoles.details("Fury Tester").selected.includes("Early Pressure")')
  assert page.evaluate('window.RiftArmoury133.costData(findDeck("'+data['deckId']+'")).known')==2
  assert page.locator('.rv133-bar').count()==11
  # Suggest only legal same-type cards, exclude Mind domain. Never claim owned if not in Bulk.

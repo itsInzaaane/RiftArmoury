@@ -2050,10 +2050,15 @@ function openArtworkPreview(id,finish=''){
  }
  if(!runeArtworkUrl(p)){openArtworkVerification(id);return;}
  ui.previewReturn=ui.modal&&ui.modal.type!=='image-preview'?{...ui.modal}:null;
- ui.modal={type:'image-preview',id,finish};renderModal();
+ ui.modal={type:'image-preview',id,finish};
+ // Workshop previews participate in v1.32 Android Back history.
+ // Other pages keep their existing lightweight modal behaviour (scanner-safe).
+ if(ui.tab==='workshop')render();else renderModal();
 }
 function closeArtworkPreview(){
- ui.modal=ui.previewReturn||null;ui.previewReturn=null;renderModal();
+ const workshop=ui.tab==='workshop';
+ ui.modal=ui.previewReturn||null;ui.previewReturn=null;
+ if(workshop)render();else renderModal();
 }
 // Capture the click before the legacy card-detail handler on collection-card
 // buttons so tapping the art zooms, while tapping the text opens that printing.

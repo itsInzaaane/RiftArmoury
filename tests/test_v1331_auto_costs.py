@@ -19,7 +19,7 @@ with sync_playwright() as pw:
  }''')
  for style in ('styles.css','features-v121.css','features-v132.css','features-v133.css'):
   page.add_style_tag(content=(ROOT/style).read_text())
- for script in ('app.js','features-v121.js','features-v132.js','costs-v1331.js','features-v133.js'):
+ for script in ('app.js','features-v121.js','features-v132.js','costs-v1331.js','roles-v1333.js','features-v133.js'):
   page.add_script_tag(content=(ROOT/script).read_text())
  assert not errors,errors
  data=page.evaluate('''() => {

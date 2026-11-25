@@ -1,46 +1,46 @@
-# RiftArmoury v1.33.1 — Automatic Resource Curve (complete app)
+# RiftArmoury v1.33.3 — Multi-role deck analysis and shared tags (complete app)
 
-This is the **full GitHub Pages-ready application**, based on RiftArmoury v1.33. It includes the entire inventory app, scanner, deck building, existing artwork and ban-list features, and the Deck Workshop. **The logo, icons, and blue theme are unchanged.** This is a focused maintenance update, not the future v1.34 AI deck generator.
+This is a **complete GitHub Pages replacement package** based on v1.33.2. It retains all existing inventory/scanner/deck functionality, blue styling, logo and app icons, and the original `riftvault-local-v1` storage key. Updating the same installed site/browser should preserve inventory; back up JSON first.
 
-## Fixed in v1.33.1
+## Changes
 
-- **Automatic Energy and Power:** Deck Workshop looks up printed card costs using public Riftbound card catalogue metadata. There is **no need to key in costs** for cards with matching data. It initially checks the community-maintained Riot gallery snapshot (`Dystorted888/riftbound-card-data`), then falls back to the existing `slimtreble/Riftbound-card-data` catalogue. If the online sources are temporarily unavailable, locally cached cost metadata remains available.
-- **Two resource charts:** The Workshop shows Energy and Power distributions separately, alongside known/unknown counts and averages. Both charts include **Main Deck + Chosen Champion**, excluding Sideboard cards. `0` is treated as a known zero, not missing data.
-- **Better notes:** Printed costs display as auto-loaded values. Role and strategy notes remain editable. The old manual cost fields are now **optional fallback fields** shown only when automatic values are unavailable; saved v1.33 manual notes are retained.
-- **Clear missing-data handling:** Costs that cannot be matched are labelled **Unknown**, not guessed or treated as zero. A **Refresh** button retries the public card-cost sources.
-- **Preserved inventory:** The same `riftvault-local-v1` localStorage key and JSON backup format remain in use. The new cost cache is separate from ownership, stock allocation, deck requirements, and version history.
+- **27 roles in 5 groups.** `Finisher` is now `Late Game`; `Debuff` was added. Cards may have any combination of strategic roles.
+- **One shared editor.** Edit Tags is available in Inventory → card details and in Deck Workshop. Edits are stored once by normalized card name in the original backed-up JSON state; all printings/copies of that name see them.
+- **Automatic suggestions from printed rules text**, where public community catalogue metadata is accessible and sufficiently clear. The rules engine recognizes specific actions (such as drawing, damage, healing, movement, cost reduction), but **does not invent strategic roles when card text is missing or ambiguous**. It does not automatically assign contextual roles such as Synergy, Combo Payoff or Late Game on cost alone. These remain manually selectable until deck-context analysis is implemented.
+- **Overrides and reset.** You can add and remove any suggested tags. Your selections take priority; reset returns to current suggestions. Former single-role annotations are treated as manual choices when first upgraded, including conversion from `Finisher` to `Late Game`. Existing freeform notes and fallback costs are preserved.
+- **Card-role charts support multiple labels per copy**, and substitutions reward overlapping roles; the role totals can therefore exceed the deck size.
+- **Homepage artwork slightly clearer.** A subtle reduction in dark overlay and increase in artwork mask opacity, desktop and mobile, without changing the logo/blue palette or home layout.
+- **Card preview remains separate:** Tapping a card still opens full artwork. Edit Tags remains its own button.
 
-### Data sources and limitations
+## Automatic text data and limits
 
-The printed costs come from publicly documented community JSON snapshots of Riot's card gallery. These are **printed Energy and Power costs**, not dynamic discounts or modifications caused by abilities during gameplay. Matching uses the collector code first and an unambiguous card name as a fallback. Rare catalogue gaps, special printings, variants, or newly released cards may remain Unknown. Source data can be incomplete or outdated, and this package's offline tests **do not verify the live network endpoints on your particular phone**.
+Printed ability text is retrieved from public, community-maintained card datasets when available, separately from the card-cost catalogue. It is cached for 7 days in `riftarmoury-role-text-v1333`, with no inventory or deck data sent to the provider. It tries the publicly available Riot-gallery community JSON export, then a community release with corrected rules text when available. These feeds are external and can fail; if they do, previously cached ability data or your manually assigned roles remain usable. A Refresh Suggestions control retries the feed. **A role suggestion is a best-effort pattern match, not AI, a ruling, or a proven strategic evaluation.** Ambiguous conditions are not guaranteed to be understood. Manual choices take precedence. The precise 27-role classification system is a preparatory step for a future intelligent deck engine, not a complete AI Deck Doctor yet.
 
-Cost snapshots are downloaded automatically when online and cached locally for up to seven days. If a source cannot be contacted or a card has not been indexed, the app will show Unknown; the user can press **Refresh** in Deck Workshop. The app will not send your inventory or deck contents to the cost providers—it requests public card catalogue data only.
+## Upgrade steps
 
-Source credit: <https://github.com/Dystorted888/riftbound-card-data> and <https://github.com/slimtreble/Riftbound-card-data>. Riftbound cards and graphics are © Riot Games. This is an unofficial non-commercial fan utility.
+1. In your **existing** installed RiftArmoury app, select **Settings & Backup → Download JSON**. Save that backup somewhere outside the browser.
+2. Extract this ZIP and upload **all contents**, not the containing folder, into the root of your existing GitHub Pages repository, replacing old files. Include new `roles-v1333.js` beside `index.html`.
+3. Commit and wait for GitHub Pages deployment. Close/reopen your installed app to activate the `riftvault-shell-v1.33.3` service-worker cache.
+4. Open **Inventory → select a card → Edit Tags** or **Deck Workshop → Edit Tags**, tick several roles, and Save. Check that both views display the same tags.
+5. Open the **Home** page and verify the background card illustration is clearer but readable. Verify owned-card totals/decks unchanged.
 
-## Updating safely from v1.33
+This is an unofficial, non-commercial Riftbound fan utility. Card information and artwork are © Riot Games, not an endorsement.
 
-1. On your phone, open your existing **RiftArmoury** app and select **Settings & Backup → Download JSON**. Keep the downloaded backup outside the app.
-2. Extract **RiftArmoury-v1.33.1-Automatic-Resource-Curve.zip**.
-3. Upload **the contents** of the extracted folder into the root of your existing GitHub Pages repository, overwriting the old files. Do not upload the containing folder as a nested directory. Make sure the new **`costs-v1331.js`** file is uploaded alongside `app.js`, `features-v133.js`, and `index.html`.
-4. Commit; check that GitHub Pages has deployed successfully. Close and reopen the installed app or refresh it to load the new `riftvault-shell-v1.33.1` service worker cache.
-5. Open **My Decks → Deck Workshop**, select an existing deck, and confirm that **Energy cost** and **Power requirement** populate automatically. Internet access is needed for the initial public card-cost download. Tap **Refresh** if values remain Unknown.
-6. Confirm the owned-card total and deck allocations remain unchanged.
+## Tests
 
-**Data safety:** Updating the existing site in the **same browser/storage context** should preserve your inventory. Switching GitHub Pages domains, using a different browser, or uninstalling an installed PWA can expose a different storage context. Restore your JSON backup in that case. As before, desktop and phone inventories do not automatically sync.
+`python tests/test_v1333_roles.py` tests the new role system and UI. Earlier v1.33.2/1.33.1, v1.32, artwork and ban-list regression tests are included. Existing tests for the old *single-select* tag editor have been updated only where their expected UI explicitly changed.
 
-## Testing
 
-Tested with offline Chromium/Playwright fixtures and regression suites:
+### Verification performed
 
-```
-python tests/test_v1331_auto_costs.py
-python tests/test_v133_workshop.py
-python tests/test_v132_integration.py
-python tests/test_official_parser_v131.py
-node tests/test_v131_manual_and_bans.cjs
-node tests/test_exact_rune_art.cjs
-node tests/test_linked_rune_art_v131.cjs
-```
+- `python tests/test_v1333_roles.py` — multi-role tagging, catalogue text suggestions, editor sync, old annotations, independent card preview, and physical inventory integrity
+- `python tests/test_v1332_card_preview.py` — older preview controls and Android Back navigation
+- `python tests/test_v1331_auto_costs.py` — resource curve values and unknown-cost handling
+- `python tests/test_v133_workshop.py` — original Deck Workshop workflow
+- `python tests/test_v132_integration.py` — Legend rules and Bulk allocation
+- `python tests/test_official_parser_v131.py` — official-update parsing
+- `node tests/test_v131_manual_and_bans.cjs`
+- `node tests/test_exact_rune_art.cjs`
+- `node tests/test_linked_rune_art_v131.cjs`
 
-Test coverage includes automatic matching by printed code, known zero and unknown costs, the separate Power curve, exclusion of Sideboard cards from the active-deck resource curve, source caching, optional legacy manual notes, resource UI, preserving the ownership key, legal swaps and inventory accounting. Real-world network availability and Android installed-PWA behaviour still require phone testing.
+All listed offline tests passed. Live public catalogue availability and actual Android camera/PWA operation still require device testing.
