@@ -1,0 +1,35 @@
+/* RiftArmoury 1.33: additions inherit the locked RiftVault navy/blue palette. */
+.rv133-workshop-banner{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;background:linear-gradient(105deg,rgba(40,108,236,.11),rgba(43,94,180,.045));border:1px solid var(--line,rgba(110,143,189,.28));padding:17px 21px;border-radius:16px;margin-bottom:22px}
+.rv133-workshop-banner>div{display:flex;flex-direction:column;gap:5px}.rv133-workshop-banner strong{font-size:17px}.rv133-workshop-banner span{color:var(--muted,#8c9fbd);font-size:12px}
+.rv133-deck-picker{min-width:min(100%,340px)}.rv133-deck-picker .select{width:100%}
+.rv133-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin:12px 0 16px}
+.rv133-metrics>div{padding:15px;border:1px solid var(--border,rgba(142,174,220,.2));border-radius:13px;background:var(--panel,rgba(21,38,69,.55));display:flex;gap:5px;flex-direction:column}
+.rv133-metrics span{font-size:11px;color:var(--muted,#9eaeca)}.rv133-metrics strong{font-size:23px;color:var(--text,#f0f5ff)}
+.rv133-integrity{display:flex;gap:8px 18px;flex-wrap:wrap;align-items:center;margin-bottom:16px;font-size:12px}.rv133-integrity span{color:var(--muted,#9eaeca)}
+.rv133-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-bottom:18px}
+.rv133-panels .panel{min-width:0}.rv133-panels h3{margin-bottom:18px}
+.rv133-summary-line{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:12px}.rv133-summary-line strong{font-size:11px;color:var(--muted,#9eaeca)}
+.rv133-bars{height:152px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end;margin-bottom:14px}
+.rv133-bar-wrap{height:100%;display:flex;align-items:center;flex-direction:column;justify-content:end;gap:5px;font-size:11px}
+.rv133-bar-wrap span{color:var(--muted,#9eaeca)}.rv133-bar-wrap small{font-size:11px}
+.rv133-bar-track{width:100%;height:112px;border-radius:7px;background:rgba(110,151,208,.08);display:flex;align-items:end;overflow:hidden}
+.rv133-bar{width:100%;border-radius:6px 6px 0 0;background:var(--accent,#377cff);min-height:0}
+.rv133-role-row{display:grid;grid-template-columns:minmax(70px,1.1fr) minmax(55px,2fr) 22px;gap:10px;align-items:center;font-size:11px;margin:11px 0}
+.rv133-role-row>span{overflow:hidden;text-overflow:ellipsis}.rv133-role-track{height:9px;border-radius:12px;background:rgba(108,148,199,.12);overflow:hidden}.rv133-role-track span{display:block;height:100%;border-radius:12px;background:var(--accent,#377cff)}
+.rv133-annotation-list,.rv133-candidate-list{display:flex;flex-direction:column;gap:0}
+.rv133-annotation-row,.rv133-candidate{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid rgba(133,161,199,.16);min-width:0}
+.rv133-annotation-row:last-child,.rv133-candidate:last-child{border-bottom:0}
+.rv133-small-art{flex:0 0 39px;width:39px;height:54px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:5px;background:rgba(35,58,93,.75)}
+.rv133-small-art img{width:100%;height:100%;object-fit:contain}
+.rv133-annotation-info,.rv133-candidate-info{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.rv133-annotation-info strong,.rv133-candidate-info strong{font-size:13px;overflow-wrap:anywhere}
+.rv133-annotation-info small,.rv133-candidate-info small{color:var(--muted,#a1b0ce);font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.rv133-swap-tools{display:grid;grid-template-columns:1fr 1fr auto;align-items:end;gap:12px;margin:14px 0 12px}
+.rv133-swap-tools>.form-field{min-width:0}.rv133-check{display:flex;gap:8px;align-items:center;font-size:12px;padding-bottom:12px;white-space:nowrap}
+.rv133-history-row{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid rgba(133,161,199,.16);padding:12px 0}
+.rv133-history-row>div{display:flex;flex-direction:column;gap:5px}.rv133-history-row strong{font-size:13px}.rv133-history-row small{font-size:11px;color:var(--muted,#a1b0ce)}
+.rv133-note-costs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.rv133-note-costs .input{width:100%}.rv133-empty-note{border:1px dashed rgba(119,159,210,.32);padding:18px;border-radius:12px;color:var(--muted,#9baeca);font-size:13px}
+.rv133-review-box{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}.rv133-review-box>div{display:flex;flex-direction:column;gap:7px;padding:14px;background:rgba(75,110,160,.12);border-radius:10px}.rv133-review-box small{color:var(--muted,#9baeca)}.rv133-review-box strong{overflow-wrap:anywhere}
+@media(max-width:820px){.rv133-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.rv133-panels{grid-template-columns:1fr}.rv133-swap-tools{grid-template-columns:1fr 1fr}.rv133-check{grid-column:span 2;padding:0}.rv133-review-box{grid-template-columns:1fr}}
+@media(max-width:500px){.rv133-workshop-banner{padding:14px}.rv133-workshop-banner .btn{width:100%}.rv133-swap-tools{grid-template-columns:1fr}.rv133-check{grid-column:auto}.rv133-annotation-row,.rv133-candidate{gap:8px}.rv133-annotation-row .btn,.rv133-candidate .btn{font-size:11px;padding:7px 9px}.rv133-small-art{flex-basis:33px;width:33px;height:45px}.rv133-role-row{grid-template-columns:minmax(75px,1fr) minmax(50px,1.4fr) 18px}}

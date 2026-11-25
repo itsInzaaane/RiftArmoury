@@ -152,7 +152,7 @@ function persistCounter(){localStorage.setItem(POINT_COUNTER_KEY,JSON.stringify(
 function counterTarget(){return pointCounter.mode==='2v2'?11:8;}
 function counterPanel(side){const n=pointCounter[side];return `<section class="rv-counter-panel ${side==='opponent'?'rv-counter-red':'rv-counter-blue'}"><div class="rv-counter-rotator"><div class="rv-counter-label">${side==='opponent'?'OPPONENT':'YOU'}</div><div class="rv-counter-score">${n}<span> / ${counterTarget()}</span></div><div class="rv-counter-actions"><button data-action="counter-adjust" data-side="${side}" data-delta="-1" aria-label="Subtract opponent point" ${n===0?'disabled':''}>−</button><button data-action="counter-adjust" data-side="${side}" data-delta="1" aria-label="Add point">+</button></div></div></section>`;}
 function renderPointCounter(){return `<div class="rv-counter-page"><div class="rv-counter-header"><div><div class="eyebrow">TABLETOP MATCH TOOL</div><h2>Point Counter</h2></div><select class="select" id="counter-mode" aria-label="Match format"><option value="1v1" ${pointCounter.mode==='1v1'?'selected':''}>1v1 · 8 points</option><option value="2v2" ${pointCounter.mode==='2v2'?'selected':''}>2v2 · 11 points</option></select></div>
- <div class="rv-counter-board">${counterPanel('opponent')}<div class="rv-counter-center"><img src="icon-192.png" alt="RiftVault"/></div>${counterPanel('you')}</div>
+ <div class="rv-counter-board">${counterPanel('opponent')}<div class="rv-counter-center"><img src="icon-192.png" alt="RiftArmoury"/></div>${counterPanel('you')}</div>
  ${pointCounter.opponent>=counterTarget()||pointCounter.you>=counterTarget()?`<div class="rv-counter-victory">🏆 Victory threshold reached. Confirm the winner using the official cleanup and tie rules.</div>`:''}
  <div class="rv-counter-footer"><button data-action="counter-undo" ${pointCounter.undo.length?'':'disabled'}>↶ Undo</button><button data-action="counter-reset">↻ Reset Match</button></div><p class="muted micro">Scoreboard values are saved on this device, separately from your card inventory.</p></div>`;}
 function changeCounter(side,delta){pointCounter.undo.push([pointCounter.opponent,pointCounter.you]);pointCounter.undo=pointCounter.undo.slice(-50);pointCounter[side]=Math.min(99,Math.max(0,pointCounter[side]+delta));persistCounter();render();}
@@ -199,15 +199,15 @@ async function restoreSnapshot(id){const found=(await listSnapshots()).find(s=>s
 // mobile or Safari can write external backups without interaction.
 async function writeExternalSnapshot(entry){const db=backupDB||await openBackupDB();backupDB=db;const handle=await new Promise(resolve=>{const req=db.transaction('settings').objectStore('settings').get('folder');req.onsuccess=()=>resolve(req.result);req.onerror=()=>resolve(null);});
  if(!handle)return;const status=await handle.queryPermission?.({mode:'readwrite'});if(status!=='granted')return;
- const file=await handle.getFileHandle('RiftVault-auto-backup-'+entry.at.slice(0,10)+'.json',{create:true});const writable=await file.createWritable();await writable.write(entry.payload);await writable.close();localStorage.setItem(BACKUP_EXTERNAL_KEY,entry.at);
+ const file=await handle.getFileHandle('RiftArmoury-auto-backup-'+entry.at.slice(0,10)+'.json',{create:true});const writable=await file.createWritable();await writable.write(entry.payload);await writable.close();localStorage.setItem(BACKUP_EXTERNAL_KEY,entry.at);
 }
 async function chooseBackupFolder(){if(!window.showDirectoryPicker)return toast('Choose-folder backups are unavailable on this device.',true);
  const folder=await window.showDirectoryPicker({mode:'readwrite'});const db=backupDB||await openBackupDB();backupDB=db;
  await new Promise((resolve,reject)=>{const tx=db.transaction('settings','readwrite');tx.objectStore('settings').put(folder,'folder');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});
- await snapshotNow(true);toast('External folder linked. RiftVault writes backups there when permission remains available.');}
+ await snapshotNow(true);toast('External folder linked. RiftArmoury writes backups there when permission remains available.');}
 
 const oldSettingsView=renderSettings;
-renderSettings=function(){let html=oldSettingsView();const widget=`<section class="panel mt16"><div class="eyebrow">AUTOMATIC INVENTORY BACKUPS</div><h3>Versioned restore points</h3><p class="muted small">RiftVault automatically refreshes its newest snapshot after changes and starts a new restore point after a quiet 20-minute gap, retaining the latest 20. Local snapshots do not survive deletion of all website data. Export JSON regularly for an independent copy.</p><div class="row wrap"><button class="btn btn-primary" data-action="backup-snapshots">Review / restore snapshots</button><button class="btn btn-ghost" data-action="snapshot-create">Snapshot now</button></div><p class="muted micro">${escapeHtml(backupLastLabel())}. External backup: ${escapeHtml(localStorage.getItem(BACKUP_EXTERNAL_KEY)||'not configured')}.</p></section>`;
+renderSettings=function(){let html=oldSettingsView();const widget=`<section class="panel mt16"><div class="eyebrow">AUTOMATIC INVENTORY BACKUPS</div><h3>Versioned restore points</h3><p class="muted small">RiftArmoury automatically refreshes its newest snapshot after changes and starts a new restore point after a quiet 20-minute gap, retaining the latest 20. Local snapshots do not survive deletion of all website data. Export JSON regularly for an independent copy.</p><div class="row wrap"><button class="btn btn-primary" data-action="backup-snapshots">Review / restore snapshots</button><button class="btn btn-ghost" data-action="snapshot-create">Snapshot now</button></div><p class="muted micro">${escapeHtml(backupLastLabel())}. External backup: ${escapeHtml(localStorage.getItem(BACKUP_EXTERNAL_KEY)||'not configured')}.</p></section>`;
  return html.replace('<div class="panel mt24"><h3>Data management',widget+'<div class="panel mt24"><h3>Data management');
 };
 
@@ -250,7 +250,7 @@ document.addEventListener('click',async event=>{
  if(action==='snapshot-export'||action==='snapshot-restore'){
   const id=Number(btn.dataset.id);
   if(action==='snapshot-restore')await restoreSnapshot(id);
-  else{const found=(await listSnapshots()).find(x=>x.id===id);if(found){download('RiftVault-Snapshot-'+found.at.slice(0,10)+'-'+id+'.json',found.payload,'application/json');toast('Backup exported. Keep it outside your browser.');}}return;
+  else{const found=(await listSnapshots()).find(x=>x.id===id);if(found){download('RiftArmoury-Snapshot-'+found.at.slice(0,10)+'-'+id+'.json',found.payload,'application/json');toast('Backup exported. Keep it outside your browser.');}}return;
  }
  if(action==='backup-link-folder'){try{await chooseBackupFolder();}catch(e){toast('Backup folder not linked: '+e.message,true);}return;}
  if(action==='scan-verify-accept'){const p=scanner.pending;if(p?.reviewType==='verify'){scanner.pending=null;baseCommitScan(p.card,p.finish,p.fp,p.source==='typed'?'typed':'verified',p.detectedCode,p.quantity||1);}return;}
