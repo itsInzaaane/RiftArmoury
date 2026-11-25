@@ -297,6 +297,9 @@ function createMeta(raw){
   isAltArt:!!raw.isAltArt||/^[A-Z0-9]{2,5}(?:[RST]?[0-9]{2,3})A$/.test(normalizedCode(code)),isSignature:!!raw.isSignature||!!raw.sig||/\*$/.test(normalizedCode(code)),isOvernumbered:!!raw.isOvernumbered||!!raw.over,domains:Array.isArray(raw.domains)?raw.domains:[],
   supertype:String(raw.supertype||''),tags:Array.isArray(raw.tags)?raw.tags:[],
   printingId:String(raw.printingId||raw.printing_id||''),
+  // Printed costs are catalogue metadata, never physical inventory quantities.
+  energy:raw.energy??raw.energyCost??raw.attributes?.energy??null,
+  power:raw.power??raw.powerCost??raw.attributes?.power??null,
   finishes:Array.isArray(raw.finishes)?raw.finishes:[]};
 }
 function rebuildIndexes(){
@@ -625,6 +628,8 @@ function metaFromRiftHunt(row){
   code,publicCode:code,name,set,setName:row.setName||set,type:row.type||'',
   rarity:row.rarity||'',supertype:row.supertype||'',domains:row.domains||[],
   tags:row.tags||[],imageUrl:row.imgUrl||'',finishes:row.finishes,
+  energy:row.energy??row.energyCost??row.attributes?.energy??null,
+  power:row.power??row.powerCost??row.attributes?.power??null,
   isAltArt:!!row.alt||/a$/i.test(collector),
   isVariant:!!(row.alt||row.sig||row.over||/a$/i.test(collector)||/\(Metal\)/i.test(row.name||'')),isSignature:!!row.sig||/\*$/.test(collector),isOvernumbered:!!row.over});
 }

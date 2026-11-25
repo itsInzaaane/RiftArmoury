@@ -33,3 +33,12 @@
 .rv133-review-box{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}.rv133-review-box>div{display:flex;flex-direction:column;gap:7px;padding:14px;background:rgba(75,110,160,.12);border-radius:10px}.rv133-review-box small{color:var(--muted,#9baeca)}.rv133-review-box strong{overflow-wrap:anywhere}
 @media(max-width:820px){.rv133-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.rv133-panels{grid-template-columns:1fr}.rv133-swap-tools{grid-template-columns:1fr 1fr}.rv133-check{grid-column:span 2;padding:0}.rv133-review-box{grid-template-columns:1fr}}
 @media(max-width:500px){.rv133-workshop-banner{padding:14px}.rv133-workshop-banner .btn{width:100%}.rv133-swap-tools{grid-template-columns:1fr}.rv133-check{grid-column:auto}.rv133-annotation-row,.rv133-candidate{gap:8px}.rv133-annotation-row .btn,.rv133-candidate .btn{font-size:11px;padding:7px 9px}.rv133-small-art{flex-basis:33px;width:33px;height:45px}.rv133-role-row{grid-template-columns:minmax(75px,1fr) minmax(50px,1.4fr) 18px}}
+
+/* v1.33.1: automatic resource curve data status and optional manual fallback */
+.rv133-curve-status {display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px;color:var(--muted);font-size:12px}
+.rv133-curve-separator {border-top:1px solid var(--line,#273958);margin:22px 0 16px}
+.rv133-auto-cost-pill {border:1px solid var(--line,#273958);background:var(--panel-2,rgba(35,65,120,.12));border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:4px;margin-bottom:15px}
+.rv133-auto-cost-pill small {color:var(--muted)}
+.rv133-manual-fallback {margin:12px 0; border:1px solid var(--line,#273958);border-radius:10px;padding:10px}
+.rv133-manual-fallback summary {cursor:pointer;color:var(--muted);font-size:12px}
+.rv133-manual-fallback .rv133-note-costs{margin-top:12px}

@@ -19,7 +19,15 @@
   }
   function roleName(name){const r=noteFor(name).role;return ROLES.includes(r)?r:'Unclassified';}
   function costNumber(value){return (value!==null&&value!==''&&Number.isInteger(Number(value))&&Number(value)>=0&&Number(value)<=20)?Number(value):null;}
-  function costFor(name,field){return costNumber(noteFor(name)[field]);}
+  function costInfo(name,field,entry=null){
+    const auto=window.RiftArmouryAutoCosts?.lookup(name,entry);
+    if(auto&&auto[field]!==null&&auto[field]!==undefined)
+      return {value:auto[field],source:'auto',provider:auto.provider};
+    // Old v1.33 manual annotations remain a clearly identified fallback only.
+    const old=costNumber(noteFor(name)[field]);
+    return old===null?{value:null,source:'unknown',provider:''}:{value:old,source:'manual',provider:'Legacy note'};
+  }
+  function costFor(name,field,entry=null){return costInfo(name,field,entry).value;}
   function deckRows(deck){return deck.entries.filter(e=>MAIN_SECTIONS.has(e.section));}
   function fingerprint(rows){return JSON.stringify(rows.map(e=>({id:e.id,section:e.section,name:e.name,code:e.code||'',required:Number(e.required||0)})));}
   function snapshotRows(rows){return rows.map(e=>({id:e.id,section:e.section,name:e.name,code:e.code||'',required:Math.max(0,Number(e.required)||0)}));}
@@ -56,24 +64,37 @@
   function sectionTotals(deck){
     return SECTIONS.map(s=>({section:s,required:deck.entries.filter(e=>e.section===s).reduce((n,e)=>n+Math.max(0,Number(e.required)||0),0)}));
   }
-  function costData(deck){
-    const bins=[0,0,0,0,0,0];let known=0,unknown=0,weighted=0;
-    for(const entry of deckRows(deck)){
-      const qty=Math.max(0,Number(entry.required)||0),cost=costFor(requirementName(entry),'energy');
+  function costData(deck,field='energy'){
+    const bins=field==='power'?[0,0,0,0,0]:[0,0,0,0,0,0];
+    let known=0,unknown=0,weighted=0,automatic=0,manual=0;
+    // Only the playable deck (including chosen champion) goes into the resource curve.
+    // Sideboard costs are visible in card notes, but don't skew the main-deck chart.
+    for(const entry of deck.entries.filter(e=>e.section==='MainDeck'||e.section==='Champion')){
+      const qty=Math.max(0,Number(entry.required)||0),info=costInfo(requirementName(entry),field,entry),cost=info.value;
       if(cost===null){unknown+=qty;continue;}
-      bins[Math.min(5,cost)]+=qty;known+=qty;weighted+=qty*cost;
+      bins[Math.min(bins.length-1,cost)]+=qty;known+=qty;weighted+=qty*cost;
+      if(info.source==='auto')automatic+=qty;else manual+=qty;
     }
-    return {bins,known,unknown,average:known?weighted/known:null};
+    return {bins,known,unknown,automatic,manual,average:known?weighted/known:null};
   }
   function roleData(deck){
     const counts=new Map();for(const e of deckRows(deck))counts.set(roleName(requirementName(e)),(counts.get(roleName(requirementName(e)))||0)+Math.max(0,Number(e.required)||0));
     return [...counts.entries()].sort((a,b)=>b[1]-a[1]);
   }
+  function miniCostChart(title,result,labels){
+    const {bins,known,unknown,automatic,manual,average}=result,max=Math.max(1,...bins);
+    return `<div class="rv133-summary-line"><span>${safe(title)}</span><strong>${known} known · ${unknown} unknown</strong></div>
+    <div class="rv133-bars" style="grid-template-columns:repeat(${bins.length},minmax(0,1fr))" aria-label="${safe(title)} histogram">${bins.map((n,i)=>`<div class="rv133-bar-wrap"><span>${n||'–'}</span><div class="rv133-bar-track"><div class="rv133-bar" style="height:${n?Math.max(8,100*n/max):0}%"></div></div><small>${labels[i]}</small></div>`).join('')}</div>
+    <p class="muted micro">${average===null?'Awaiting cost data.':'Average '+safe(title)+': '+average.toFixed(2)+'.'} ${automatic} automatically identified${manual?' · '+manual+' older manual notes':''}. ${unknown?'Missing data is excluded, not counted as zero.':''}</p>`;
+  }
   function costChart(deck){
-    const {bins,known,unknown,average}=costData(deck),max=Math.max(1,...bins);
-    return `<div class="rv133-summary-line"><span>Energy cost distribution</span><strong>${known} known / ${unknown} unknown</strong></div>
-    <div class="rv133-bars">${bins.map((n,i)=>`<div class="rv133-bar-wrap"><span>${n||'–'}</span><div class="rv133-bar-track"><div class="rv133-bar" style="height:${n?Math.max(8,100*n/max):0}%"></div></div><small>${i===5?'5+':i}</small></div>`).join('')}</div>
-    <p class="muted micro">${average===null?'No verified cost figures recorded yet.':'Average recorded Energy: '+average.toFixed(2)+'.'} Cost information is currently user-entered, not inferred from card rarity or artwork; unrecorded costs are excluded.</p>`;
+    const status=window.RiftArmouryAutoCosts?.status()||{state:'loading',count:0};
+    const stateLabel=status.state==='loading'?'Looking up printed costs…':status.state==='ready'?'Catalogue costs loaded':status.count?'Using cached printed costs':'Cost catalogue unavailable';
+    return `<div class="rv133-curve-status"><span>${safe(stateLabel)}${status.source?' · '+safe(status.source):''}</span><button class="btn btn-small btn-ghost" data-action="rv133-refresh-costs" ${status.state==='loading'?'disabled':''}>↻ Refresh</button></div>
+    ${miniCostChart('Energy cost',costData(deck,'energy'),['0','1','2','3','4','5+'])}
+    <div class="rv133-curve-separator"></div>
+    ${miniCostChart('Power requirement',costData(deck,'power'),['0','1','2','3','4+'])}
+    <p class="muted micro">Printed costs are loaded automatically from card catalogues and cached on this device. No cost entry is required. Sideboard cards are not included in these curves.</p>`;
   }
   function roleChart(deck){
     const rows=roleData(deck),max=Math.max(1,...rows.map(x=>x[1]));
@@ -82,13 +103,15 @@
   function overviewMetrics(deck){
     const c=costData(deck),unclassified=roleData(deck).find(([role])=>role==='Unclassified')?.[1]||0;
     const plan=deckAvailabilityPlan(deck); const issues=deckLegalReview(deck).issues;
-    return `<div class="rv133-metrics"><div><span>Main + Champion</span><strong>${sectionTotals(deck).filter(e=>['MainDeck','Champion'].includes(e.section)).reduce((t,e)=>t+e.required,0)}</strong></div><div><span>Cost data missing</span><strong>${c.unknown}</strong></div><div><span>Unclassified</span><strong>${unclassified}</strong></div><div><span>Missing after Bulk</span><strong>${plan.short}</strong></div></div><div class="rv133-integrity"><strong>${issues.length?'⚠ '+issues.length+' legality checks need attention':'✓ Existing basic legality checks passed'}</strong><span>Suggestions are only candidates. Check official rules before competitive play.</span></div>`;
+    return `<div class="rv133-metrics"><div><span>Main + Champion</span><strong>${sectionTotals(deck).filter(e=>['MainDeck','Champion'].includes(e.section)).reduce((t,e)=>t+e.required,0)}</strong></div><div><span>Energy data missing</span><strong>${c.unknown}</strong></div><div><span>Unclassified</span><strong>${unclassified}</strong></div><div><span>Missing after Bulk</span><strong>${plan.short}</strong></div></div><div class="rv133-integrity"><strong>${issues.length?'⚠ '+issues.length+' legality checks need attention':'✓ Existing basic legality checks passed'}</strong><span>Suggestions are only candidates. Check official rules before competitive play.</span></div>`;
   }
   function entryRows(deck){
     const rows=deckRows(deck);
     return `<div class="rv133-annotation-list">${rows.map(e=>{
       const p=cardForEntry(e),note=noteFor(requirementName(e));
-      return `<div class="rv133-annotation-row"><span class="rv133-small-art">${cardArt(p||{})}</span><div class="rv133-annotation-info"><strong>${safe(requirementName(e))}</strong><small>${safe(SECTION_LABEL[e.section])} · ×${Number(e.required)||0} · ${safe(roleName(requirementName(e)))}</small><small>Energy ${costFor(requirementName(e),'energy')??'Unknown'} · Power ${costFor(requirementName(e),'power')??'Unknown'}${note.note?' · '+safe(note.note):''}</small></div><button class="btn btn-small btn-ghost" data-action="rv133-note" data-name="${safe(requirementName(e))}">Edit tags</button></div>`;
+      const energy=costInfo(requirementName(e),'energy',e),power=costInfo(requirementName(e),'power',e);
+      const label=energy.source==='auto'||power.source==='auto'?'Auto':energy.source==='manual'||power.source==='manual'?'Manual fallback':'Not found';
+      return `<div class="rv133-annotation-row"><span class="rv133-small-art">${cardArt(p||{})}</span><div class="rv133-annotation-info"><strong>${safe(requirementName(e))}</strong><small>${safe(SECTION_LABEL[e.section])} · ×${Number(e.required)||0} · ${safe(roleName(requirementName(e)))}</small><small>Energy ${energy.value??'Unknown'} · Power ${power.value??'Unknown'} · ${safe(label)}${note.note?' · '+safe(note.note):''}</small></div><button class="btn btn-small btn-ghost" data-action="rv133-note" data-name="${safe(requirementName(e))}">Edit tags</button></div>`;
     }).join('')||'<p class="muted small">Add Main Deck cards to annotate roles and costs.</p>'}</div>`;
   }
   function candidateEvaluation(deck,source,candidate){
@@ -112,7 +135,7 @@
       if(sourceRole==='Unclassified'||role==='Unclassified')why.push('Role comparison unavailable');
       score+=15;why.push('Same card type');
       if(bulk>0){score+=25+Math.min(5,bulk);why.push(`${bulk} ${bulk===1?'copy':'copies'} free in Bulk`);}
-      if(sourceCost!==null&&cost!==null){let delta=Math.abs(cost-sourceCost);score+=Math.max(0,12-4*delta);if(delta===0)why.push('Same recorded Energy cost');}
+      if(sourceCost!==null&&cost!==null){let delta=Math.abs(cost-sourceCost);score+=Math.max(0,12-4*delta);if(delta===0)why.push('Same printed Energy cost');}
       return {name:g.name,card,bulk,role,cost,score,why};
     }).filter(Boolean).sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
   }
@@ -125,7 +148,7 @@
     let source=options.find(e=>e.id===ws.fromId)||options[0];ws.fromId=source.id;
     const candidates=candidateList(deck,source).slice(0,36),role=roleName(requirementName(source));
     return `<div class="rv133-swap-tools"><label class="form-field"><span>Card to replace (1 copy)</span><select class="select" id="rv133-source">${swapOptions(deck)}</select></label><label class="form-field"><span>Search legal replacements</span><input class="input" id="rv133-query" autocomplete="off" value="${safe(ws.query)}" placeholder="Card name or collector code"></label><label class="rv133-check"><input id="rv133-bulk" type="checkbox" ${ws.onlyBulk?'checked':''}> Available in Bulk only</label></div>
-    <p class="muted small">Comparing against <strong>${safe(requirementName(source))}</strong> (${safe(role)}). Candidates are legal after removing one required copy from this section; matching roles/costs rely on your saved annotations.</p>
+    <p class="muted small">Comparing against <strong>${safe(requirementName(source))}</strong> (${safe(role)}). Candidates are legal after removing one required copy from this section. Roles use your notes; costs are loaded automatically when available.</p>
     <div id="rv133-candidates"><div class="rv133-candidate-list">${candidates.map(c=>`<div class="rv133-candidate"><span class="rv133-small-art">${cardArt(c.card)}</span><div class="rv133-candidate-info"><strong>${safe(c.name)}</strong><small>${safe(c.role)} · Energy ${c.cost===null?'Unknown':c.cost} · Bulk ${c.bulk}</small><small>${safe(c.why.join(' · '))}</small></div><button class="btn btn-small btn-primary" data-action="rv133-review-swap" data-target="${safe(c.name)}">Review</button></div>`).join('')||'<div class="rv133-empty-note">No matching legal candidates. Try clearing the Bulk filter, choosing a different source, or refreshing the card catalogue.</div>'}</div></div>
     <p class="muted micro">Ranking is deterministic, not AI-generated. No gameplay simulation or win-rate claims. Proposed changes always require confirmation.</p>`;
   }
@@ -137,18 +160,20 @@
   }
   function renderDeckWorkshop(){
     const deck=chooseDeckId();
-    return `<div class="row-between wrap mb24"><div><div class="eyebrow">RIFTARMOURY · DECK TOOLS</div><h2>Deck Workshop</h2><p class="muted small">Local-first deck analysis, role notes, resource charts and safe decklist revisions.</p></div><button class="btn btn-primary" data-action="rv133-new-deck">＋ Start new deck</button></div>
+    return `<div class="row-between wrap mb24"><div><div class="eyebrow">RIFTARMOURY · DECK TOOLS</div><h2>Deck Workshop</h2><p class="muted small">Local-first deck analysis, automatically populated resource curves, role notes and safe decklist revisions.</p></div><button class="btn btn-primary" data-action="rv133-new-deck">＋ Start new deck</button></div>
     ${!state.decks.length?'<div class="panel rv133-empty-note"><h3>No decks yet</h3><p>Create an empty deck, select your Legend, and add cards from the legal card catalogue.</p><button class="btn btn-primary" data-action="rv133-new-deck">Create first deck</button></div>':`<div class="panel mb18"><div class="row-between wrap"><label class="form-field rv133-deck-picker"><span>Analyse saved deck</span><select class="select" id="rv133-deck-select">${state.decks.map(d=>`<option value="${safe(d.id)}" ${d.id===deck.id?'selected':''}>${safe(d.name)}</option>`).join('')}</select></label><button class="btn btn-ghost" data-action="rv133-open-deck">Open decklist ↗</button></div><p class="muted small">${safe(legendLabel(deck))}</p></div>
     ${overviewMetrics(deck)}<div class="rv133-panels"><section class="panel"><h3>Resource curve</h3>${costChart(deck)}</section><section class="panel"><h3>Card roles</h3>${roleChart(deck)}</section></div>
-    <section class="panel mb18"><div class="row-between wrap"><h3>Card roles and cost notes</h3><span class="muted micro">Manually verified annotations</span></div>${entryRows(deck)}</section>
+    <section class="panel mb18"><div class="row-between wrap"><h3>Card roles and cost notes</h3><span class="muted micro">Auto costs · Optional strategy notes</span></div>${entryRows(deck)}</section>
     <section class="panel mb18"><div class="row-between wrap"><h3>Smart card substitutions</h3><span class="pill">Legend-aware</span></div>${swapView(deck)}</section>
     <section class="panel mb18 rv133-history">${historyList(deck)}</section>`}`;
   }
   function noteDialog(name){
-    const note=noteFor(name),role=roleName(name),energy=costFor(name,'energy'),power=costFor(name,'power');
-    return modalShell('Card analysis notes',name,`<p class="muted small">Add trusted notes from the physical card or verified catalogue. They help with deck analysis and substitutions without guessing card text.</p>
-    <label class="form-field"><span>Strategic role</span><select class="select" id="rv133-note-role">${ROLES.map(r=>`<option value="${safe(r)}" ${r===role?'selected':''}>${safe(r)}</option>`).join('')}</select></label>
-    <div class="rv133-note-costs"><label class="form-field"><span>Printed Energy cost (optional)</span><input class="input" type="number" min="0" max="20" id="rv133-note-energy" value="${energy??''}" placeholder="Unknown"></label><label class="form-field"><span>Printed Power requirement (optional)</span><input class="input" type="number" min="0" max="20" id="rv133-note-power" value="${power??''}" placeholder="Unknown"></label></div>
+    const note=noteFor(name),role=roleName(name),energy=costInfo(name,'energy'),power=costInfo(name,'power');
+    const auto=energy.source==='auto'||power.source==='auto';
+    return modalShell('Card analysis notes',name,`<p class="muted small">Printed Energy and Power are looked up automatically. You only need to record optional strategic notes or card roles.</p>
+    <div class="rv133-auto-cost-pill"><strong>⚡ Energy ${energy.value??'Unknown'} · ◆ Power ${power.value??'Unknown'}</strong><small>${auto?'Automatically matched to card data':energy.source==='manual'||power.source==='manual'?'Older manually recorded fallback':'Waiting for catalogue values'}</small></div>
+    <label class="form-field"><span>Strategic role (optional)</span><select class="select" id="rv133-note-role">${ROLES.map(r=>`<option value="${safe(r)}" ${r===role?'selected':''}>${safe(r)}</option>`).join('')}</select></label>
+    ${!auto?`<details class="rv133-manual-fallback"><summary>Fallback only: enter printed costs if catalogue unavailable</summary><div class="rv133-note-costs"><label class="form-field"><span>Energy</span><input class="input" type="number" min="0" max="20" id="rv133-note-energy" value="${costNumber(note.energy)??''}" placeholder="Unknown"></label><label class="form-field"><span>Power</span><input class="input" type="number" min="0" max="20" id="rv133-note-power" value="${costNumber(note.power)??''}" placeholder="Unknown"></label></div></details>`:''}
     <label class="form-field"><span>Card strategy note</span><textarea class="input" id="rv133-note-text" rows="3" maxlength="500" placeholder="How does this card help your strategy?">${safe(note.note||'')}</textarea></label>`,
     '<button class="btn btn-ghost" data-action="rv133-cancel">Cancel</button><button class="btn btn-primary" data-action="rv133-save-note">Save notes</button>',true);
   }
@@ -222,6 +247,9 @@
     const btn=e.target.closest('[data-action]');if(!btn||!btn.dataset.action?.startsWith('rv133-'))return;
     e.preventDefault();e.stopImmediatePropagation();
     const action=btn.dataset.action,deck=selectedDeck();
+    if(action==='rv133-refresh-costs'){
+      window.RiftArmouryAutoCosts?.refresh(true).then(()=>render()).catch(()=>render());return;
+    }
     if(action==='rv133-open-workshop'||action==='rv133-deck-workshop'){goWorkshop(ui.deckId||deck?.id);return;}
     if(action==='rv133-new-deck'){
       const name=prompt('New deck name','Untitled deck');if(name===null)return;
@@ -234,10 +262,12 @@
       const m=ui.modal;if(m?.type!=='rv133-note-editor')return;
       const role=document.getElementById('rv133-note-role')?.value;
       const rawEnergy=document.getElementById('rv133-note-energy')?.value,rawPower=document.getElementById('rv133-note-power')?.value;
-      const energy=costNumber(rawEnergy),power=costNumber(rawPower);
-      if((rawEnergy!==''&&energy===null)||(rawPower!==''&&power===null)||!ROLES.includes(role)){toast('Use a valid role and Energy/Power values from 0–20, or leave costs blank.',true);return;}
+      const current=noteFor(m.name);
+      const energy=rawEnergy===undefined?costNumber(current.energy):costNumber(rawEnergy);
+      const power=rawPower===undefined?costNumber(current.power):costNumber(rawPower);
+      if((rawEnergy!==undefined&&rawEnergy!==''&&energy===null)||(rawPower!==undefined&&rawPower!==''&&power===null)||!ROLES.includes(role)){toast('Use a valid role and optional fallback costs from 0–20.',true);return;}
       const note=String(document.getElementById('rv133-note-text')?.value||'').slice(0,500);
-      insights()[norm(m.name)]={role,energy,power,note};save();closeModal();render();toast('Card role and cost notes saved.');return;
+      insights()[norm(m.name)]={...current,role,energy,power,note};save();closeModal();render();toast('Card role and notes saved; catalogue costs are automatic.');return;
     }
     if(action==='rv133-checkpoint'){addSnapshot(deck,deck.entries,'Manual checkpoint');save();render();toast('Decklist checkpoint saved.');return;}
     if(action==='rv133-review-swap'){
@@ -286,6 +316,6 @@
     }
   },true);
   // Expose read-only analysis helpers for offline tests and future v1.34 engine.
-  window.RiftArmoury133={version:'1.33',roles:ROLES,cardNotes:noteFor,costData,roleData,candidates:candidateList,restore:restoreRequirements,snapshot:(d,label)=>addSnapshot(d,d.entries,label),fingerprint};
+  window.RiftArmoury133={version:'1.33.1',roles:ROLES,cardNotes:noteFor,costData,costInfo,roleData,candidates:candidateList,restore:restoreRequirements,snapshot:(d,label)=>addSnapshot(d,d.entries,label),fingerprint};
   render();
 })();
